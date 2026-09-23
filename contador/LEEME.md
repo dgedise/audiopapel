@@ -26,7 +26,17 @@ Para comprobarlo, abre la URL en el navegador: debe responder algo como
 Tras editar `Codigo.gs` en Apps Script: **Implementar → Gestionar implementaciones → editar (lápiz)
 → Versión: nueva → Implementar**. Así la URL no cambia.
 
+## Seguridad
+
+- **`@OnlyCurrentDoc`** (primera línea del script) limita sus permisos a esta hoja: aunque alguien lograra modificar el script, no podría llegar a tus otras hojas.
+- La dirección `/exec` solo ejecuta `doGet` (leer el total) y `doPost` (sumar un número). No da acceso a la hoja ni a tu cuenta.
+- Solo se guardan números: no se puede inyectar texto ni fórmulas en la hoja.
+- Si alguien abusara del contador (inflarlo o saturarlo): **Implementar → Gestionar implementaciones → Archivar** y crear una nueva; cambia la URL en `contador/url.txt`.
+- Lo que de verdad protege todo esto: **verificación en dos pasos** en tu cuenta de Google, en GitHub y en OVH.
+
 ## Detalles
+
+- Google «despierta» el script si llevaba un rato parado: la primera petición puede tardar 10-20 segundos. La web no espera por él: el aviso y el sello simplemente aparecen más tarde.
 
 - No cuenta lo que se genera abriendo la web en local (`file://`, `localhost`, red de casa): así las pruebas no inflan el número.
 - El número es de buena fe: la URL es pública y alguien podría enviar datos falsos. El script rechaza valores absurdos (más de 100 QR por mensaje).

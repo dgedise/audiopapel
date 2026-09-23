@@ -1,4 +1,10 @@
 /**
+ * @OnlyCurrentDoc
+ * ↑ Limita los permisos del script a ESTA hoja de cálculo. Sin esta línea,
+ *   Google pide acceso a todas tus hojas, aunque el código no las toque.
+ */
+
+/**
  * audiopapel · contador de códigos QR generados
  * =============================================
  * Google Apps Script para pegar en una hoja de cálculo de Google
