@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>audiopapel · Mensajes de voz en códigos QR para imprimir</title>
+<meta name="description" content="Convierte un mensaje de voz en códigos QR para imprimir, pegar o regalar. Cualquier móvil lo vuelve a hacer sonar, sin apps ni cuentas. Gratis.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://audiopapel.com/">
+
+<!-- Al compartir el enlace (WhatsApp, redes, Discover) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="audiopapel">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://audiopapel.com/">
+<meta property="og:title" content="audiopapel · La voz, en papel">
+<meta property="og:description" content="Mensajes de voz impresos en códigos QR. Cualquier móvil los vuelve a hacer sonar, sin apps, sin cuentas y sin subir nada.">
+<meta property="og:image" content="https://audiopapel.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="«La voz, en papel»: un tique de papel con un código QR y una onda de sonido hecha de cuadraditos.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Iconos: pestaña, resultados de Google, pantalla de inicio del móvil -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#FAFBF8">
+
+<!-- Tipografías desde el propio sitio: más rápido y sin terceros -->
+<link rel="preload" href="fuentes/Archivo-normal-400_900-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fuentes/fuentes.css">
+
+<!-- Dónde está la herramienta, relativo a esta página. La demo de la portada
+     genera QRs que apuntan aquí. -->
+<meta name="audiopapel:app" content="audio_en_papel.html">
+
+<!-- Datos estructurados: le dicen a Google qué es esta página -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://audiopapel.com/#web",
+      "url": "https://audiopapel.com/",
+      "name": "audiopapel",
+      "description": "Mensajes de voz impresos en códigos QR.",
+      "inLanguage": "es"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://audiopapel.com/#app",
+      "name": "audiopapel",
+      "url": "https://audiopapel.com/audio_en_papel.html",
+      "description": "Graba un mensaje de voz, conviértelo en códigos QR numerados para imprimir y escanéalos con la cámara del móvil para volver a escucharlo. Todo ocurre en el navegador.",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Cualquiera con un navegador moderno (Android, iOS, Windows, macOS, Linux)",
+      "browserRequirements": "Requiere JavaScript y WebAssembly",
+      "inLanguage": "es",
+      "isAccessibleForFree": true,
+      "license": "https://polyformproject.org/licenses/noncommercial/1.0.0",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "image": "https://audiopapel.com/og-image.png",
+      "featureList": [
+        "Grabar hasta 3 minutos de voz o cargar un archivo de audio",
+        "Compresión Codec 2 a 1200 o 700 bit/s",
+        "Modo texto con dictado y voz sintética",
+        "Códigos QR numerados que se leen en cualquier orden",
+        "Escaneo con la cámara del móvil, sin instalar nada"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "¿Hay que instalar algo?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil." } },
+        { "@type": "Question", "name": "¿Dónde se guarda mi voz?",
+          "acceptedAnswer": { "@type": "Answer", "text": "En el papel, y en ningún sitio más. Todo se procesa en tu dispositivo y los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía al servidor." } },
+        { "@type": "Question", "name": "¿Por qué suena un poco robótica?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 1200 bits por segundo con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
+        { "@type": "Question", "name": "¿Cuánto puede durar un mensaje?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Un minuto de voz ocupa unos 6 códigos QR con el tamaño recomendado." } }
+      ]
+    }
+  ]
+}
+</script>
+<style>
+  /* =================================================================
+     TOKENS · papel milimetrado de día, pizarra de noche
+     ================================================================= */
+  :root {
+    --papel: #FAFBF8;
+    --hoja: #FFFFFF;
+    --cuadro: rgba(52, 98, 160, .075);
+    --cuadro-mayor: rgba(52, 98, 160, .13);
+    --tinta: #151C2C;
+    --tinta-2: #475069;
+    --tinta-3: #6B7389;
+    --boli: #2346B0;
+    --boli-suave: rgba(35, 70, 176, .08);
+    --subrayado: #FFE75A;
+    --rec: #D93B3B;
+    --margen: rgba(217, 59, 59, .28);
+    --borde: #DCE1EA;
+    --sombra: 0 1px 2px rgba(21, 28, 44, .06), 0 10px 30px -12px rgba(21, 28, 44, .22);
+    --cinta: rgba(255, 231, 90, .55);
+    --boton-texto: #FFFFFF;
+
+    --f-titular: "Archivo", "Arial Narrow", "Roboto Condensed", sans-serif;
+    --f-texto: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --f-mano: "Kalam", "Segoe Print", "Bradley Hand", cursive;
+
+    --ancho: 1120px;
+    --canal: max(16px, 4vw);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --papel: #0F141D;
+      --hoja: #161D2A;
+      --cuadro: rgba(120, 160, 220, .05);
+      --cuadro-mayor: rgba(120, 160, 220, .09);
+      --tinta: #E9EDF4;
+      --tinta-2: #B3BCCD;
+      --tinta-3: #8D97AB;
+      --boli: #93B1FF;
+      --boli-suave: rgba(147, 177, 255, .10);
+      --subrayado: rgba(242, 213, 68, .38);
+      --margen: rgba(229, 90, 90, .30);
+      --borde: #283246;
+      --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -12px rgba(0, 0, 0, .6);
+      --cinta: rgba(242, 213, 68, .35);
+      --boton-texto: #0F141D;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --papel: #0F141D;
+    --hoja: #161D2A;
+    --cuadro: rgba(120, 160, 220, .05);
+    --cuadro-mayor: rgba(120, 160, 220, .09);
+    --tinta: #E9EDF4;
+    --tinta-2: #B3BCCD;
+    --tinta-3: #8D97AB;
+    --boli: #93B1FF;
+    --boli-suave: rgba(147, 177, 255, .10);
+    --subrayado: rgba(242, 213, 68, .38);
+    --margen: rgba(229, 90, 90, .30);
+    --borde: #283246;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -12px rgba(0, 0, 0, .6);
+    --cinta: rgba(242, 213, 68, .35);
+    --boton-texto: #0F141D;
+  }
+
+  /* =================================================================
+     BASE
+     ================================================================= */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: var(--f-texto);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--tinta);
+    background-color: var(--papel);
+    /* Papel milimetrado: cuadrícula fina cada 24 px y gruesa cada 120 px */
+    background-image:
+      linear-gradient(var(--cuadro-mayor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cuadro-mayor) 1px, transparent 1px),
+      linear-gradient(var(--cuadro) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cuadro) 1px, transparent 1px);
+    background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* La línea roja de margen del cuaderno (solo en pantallas anchas) */
+  body::before {
+    content: ""; position: fixed; top: 0; bottom: 0; left: 64px; width: 2px;
+    background: var(--margen); pointer-events: none; z-index: 0;
+  }
+  @media (max-width: 900px) { body::before { display: none; } }
+
+  a { color: var(--boli); text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--boli); outline-offset: 3px; border-radius: 4px; }
+  h1, h2, h3 { font-family: var(--f-titular); font-stretch: 72%; line-height: .98; margin: 0; text-wrap: balance; letter-spacing: -.005em; }
+  p { margin: 0; }
+
+  .envoltorio { position: relative; z-index: 1; max-width: var(--ancho); margin: 0 auto; padding-inline: var(--canal); }
+  .etiqueta {
+    font-family: var(--f-mono); font-size: .75rem; font-weight: 500;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-3);
+  }
+  .subrayado {
+    background: linear-gradient(transparent 58%, var(--subrayado) 58%, var(--subrayado) 92%, transparent 92%);
+    padding-inline: .06em;
+  }
+  .nota {
+    font-family: var(--f-mano); color: var(--boli); font-size: 1.2rem; line-height: 1.2;
+    transform: rotate(-3deg); display: inline-block;
+  }
+
+  /* =================================================================
+     CABECERA
+     ================================================================= */
+  .cabecera { padding-block: 22px; }
+  .cabecera .envoltorio { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .marca { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--tinta); }
+  .marca svg { width: 30px; height: 30px; flex: none; }
+  .marca b { font-family: var(--f-titular); font-stretch: 80%; font-weight: 850; font-size: 1.45rem; letter-spacing: -.01em; }
+  .marca span { color: var(--tinta-3); font-weight: 600; }
+  .menu { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .menu a { color: var(--tinta-2); text-decoration: none; font-size: .95rem; }
+  .menu a:hover { color: var(--tinta); }
+  @media (max-width: 720px) { .menu a:not(.boton) { display: none; } }
+
+  .boton {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--f-titular); font-stretch: 85%; font-weight: 750; font-size: 1.05rem; letter-spacing: .01em;
+    padding: 12px 20px; border-radius: 999px; border: 2px solid var(--tinta);
+    background: var(--tinta); color: var(--boton-texto) !important; text-decoration: none; cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .boton:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -8px var(--tinta); }
+  .boton .punto { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 0 3px rgba(217, 59, 59, .25); }
+  .boton.claro { background: transparent; color: var(--tinta) !important; }
+  .boton.claro:hover { background: var(--boli-suave); box-shadow: none; }
+  .boton.pequeno { padding: 8px 14px; font-size: .95rem; }
+
+  /* =================================================================
+     PORTADA: titular + tique con el QR vivo
+     ================================================================= */
+  .portada { padding-block: 32px 72px; }
+  .portada .envoltorio { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 56px; align-items: center; }
+  @media (max-width: 900px) { .portada .envoltorio { grid-template-columns: 1fr; gap: 40px; } }
+  .portada h1 { font-size: clamp(3.4rem, 9.5vw, 7.4rem); font-weight: 900; font-stretch: 68%; margin-block: 14px 22px; }
+  .portada h1 .linea { display: block; }
+  .entradilla { font-size: 1.22rem; color: var(--tinta-2); max-width: 34em; }
+  .entradilla strong { color: var(--tinta); }
+  .acciones { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+  .sellos { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; font-family: var(--f-mono); font-size: .8rem; color: var(--tinta-3); }
+  .sellos span::before { content: "✓ "; color: var(--boli); font-weight: 600; }
+
+  .tique-zona { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .tique {
+    --dientes: radial-gradient(circle at 10px 0, transparent 7px, #000 7.5px) -10px 0 / 20px 51% repeat-x,
+               radial-gradient(circle at 10px 100%, transparent 7px, #000 7.5px) -10px 100% / 20px 51% repeat-x;
+    width: min(100%, 340px); background: #FFFFFF; color: #151C2C;
+    padding: 30px 26px 26px;
+    -webkit-mask: var(--dientes); mask: var(--dientes);
+    filter: drop-shadow(0 18px 28px rgba(21, 28, 44, .22)) drop-shadow(0 2px 3px rgba(21, 28, 44, .10));
+    transform: rotate(2.2deg); transition: transform .35s ease;
+  }
+  .tique-zona:hover .tique { transform: rotate(0deg); }
+  .tique-cabeza { display: flex; justify-content: space-between; align-items: center; font-family: var(--f-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: #5A6278; }
+  .tique-cabeza .rec { display: inline-flex; align-items: center; gap: 6px; color: #D93B3B; font-weight: 600; }
+  .tique-cabeza .rec i { width: 8px; height: 8px; border-radius: 50%; background: #D93B3B; animation: latido 1.6s ease-in-out infinite; }
+  @keyframes latido { 50% { opacity: .25; } }
+  #onda { display: block; width: 100%; height: 74px; margin-block: 14px 12px; }
+  .qr-marco { position: relative; aspect-ratio: 1; width: 100%; max-width: 100%; }
+  #qr svg { display: block; width: 100%; height: auto; shape-rendering: crispEdges; }
+  .tique-pie { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed #C9CFDA; font-family: var(--f-mono); font-size: .74rem; color: #5A6278; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .tique-pie b { color: #151C2C; font-weight: 600; }
+  .anotacion-qr { position: absolute; left: -8px; top: 42%; transform: translateX(-100%) rotate(-6deg); text-align: right; width: 150px; }
+  .anotacion-qr svg { display: block; margin-left: auto; margin-top: 4px; }
+  @media (max-width: 1100px) { .anotacion-qr { display: none; } }
+  .bajo-tique { margin-top: 22px; text-align: center; max-width: 340px; color: var(--tinta-2); font-size: .95rem; }
+  .bajo-tique .fila { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+
+  .editor { width: min(100%, 340px); margin-top: 14px; background: var(--hoja); border: 1px solid var(--borde); border-radius: 12px; padding: 14px; box-shadow: var(--sombra); }
+  .editor label { display: block; font-size: .85rem; color: var(--tinta-2); margin-bottom: 6px; }
+  .editor textarea {
+    width: 100%; min-height: 104px; resize: vertical; font: inherit; font-size: .98rem; line-height: 1.45;
+    color: var(--tinta); background: var(--papel); border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px;
+  }
+  .editor .cuenta { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--f-mono); font-size: .72rem; color: var(--tinta-3); }
+
+  /* =================================================================
+     SECCIONES
+     ================================================================= */
+  section.bloque { padding-block: 80px; }
+  .cabeza-bloque { max-width: 44rem; margin-bottom: 40px; }
+  .cabeza-bloque h2 { font-size: clamp(2.3rem, 5.2vw, 3.6rem); font-weight: 850; margin-block: 10px 16px; }
+  .cabeza-bloque p { color: var(--tinta-2); font-size: 1.12rem; }
+
+  /* Cómo funciona: tres pasos reales, en orden */
+  .pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; counter-reset: paso; }
+  @media (max-width: 860px) { .pasos { grid-template-columns: 1fr; } }
+  .paso { background: var(--hoja); border: 1px solid var(--borde); border-radius: 14px; padding: 26px 24px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .paso .num { font-family: var(--f-titular); font-stretch: 70%; font-weight: 900; font-size: 3.4rem; line-height: .8; color: var(--boli); }
+  .paso h3 { font-size: 1.75rem; font-weight: 800; }
+  .paso p { color: var(--tinta-2); }
+  .paso code { font-family: var(--f-mono); font-size: .8rem; color: var(--tinta-3); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--borde); }
+
+  /* Cifras */
+  .cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--tinta); border-bottom: 2px solid var(--tinta); }
+  @media (max-width: 860px) { .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cifra { padding: 26px 22px; display: flex; flex-direction: column; gap: 6px; }
+  .cifra + .cifra { border-left: 1px solid var(--borde); }
+  @media (max-width: 860px) { .cifra:nth-child(3) { border-left: 0; } .cifra:nth-child(n+3) { border-top: 1px solid var(--borde); } }
+  .cifra b { font-family: var(--f-titular); font-stretch: 68%; font-weight: 900; font-size: clamp(2.6rem, 5vw, 3.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .cifra b small { font-size: .45em; font-weight: 700; margin-left: 4px; color: var(--tinta-2); }
+  .cifra span { color: var(--tinta-2); font-size: .95rem; line-height: 1.45; }
+
+  /* Ideas de uso: etiquetas de papel sujetas con cinta */
+  .ideas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 20px; }
+  @media (max-width: 1000px) { .ideas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .ideas { grid-template-columns: 1fr; } }
+  .idea {
+    position: relative; background: var(--hoja); border: 1px solid var(--borde); border-radius: 4px;
+    padding: 26px 20px 20px; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 10px;
+    transition: transform .2s ease;
+  }
+  .idea::before {
+    content: ""; position: absolute; top: -11px; left: 50%; width: 76px; height: 22px;
+    background: var(--cinta); transform: translateX(-50%) rotate(-2deg);
+    border-left: 1px dashed rgba(0, 0, 0, .06); border-right: 1px dashed rgba(0, 0, 0, .06);
+  }
+  .idea:nth-child(odd) { transform: rotate(-.6deg); }
+  .idea:nth-child(even) { transform: rotate(.5deg); }
+  .idea:hover { transform: rotate(0) translateY(-3px); }
+  .idea .tipo { font-family: var(--f-mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--boli); font-weight: 600; }
+  .idea h3 { font-size: 1.45rem; font-weight: 800; }
+  .idea p { color: var(--tinta-2); font-size: .96rem; line-height: 1.5; }
+
+  /* Por dentro: anatomía de un QR */
+  .anatomia { background: var(--hoja); border: 1px solid var(--borde); border-radius: 14px; padding: 26px 24px; box-shadow: var(--sombra); }
+  .desliza { overflow-x: auto; padding-bottom: 6px; }
+  .trama { display: flex; align-items: stretch; gap: 0; font-family: var(--f-mono); font-size: 1rem; min-width: 720px; }
+  .campo { display: flex; flex-direction: column; gap: 8px; }
+  .campo .valor { padding: 10px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+  .campo .quees { font-family: var(--f-texto); font-size: .8rem; color: var(--tinta-2); line-height: 1.3; padding-inline: 8px; max-width: 12em; }
+  .sep { padding: 10px 2px; color: var(--tinta-3); }
+  .c1 .valor { background: rgba(35, 70, 176, .12); color: var(--boli); }
+  .c2 .valor { background: rgba(217, 59, 59, .10); color: var(--rec); }
+  .c3 .valor, .c4 .valor { background: var(--subrayado); color: var(--tinta); }
+  .c5 .valor { background: rgba(71, 80, 105, .14); color: var(--tinta); }
+  .c6 .valor { background: repeating-linear-gradient(90deg, var(--boli-suave) 0 8px, transparent 8px 16px); color: var(--tinta-2); flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .c6 { flex: 1; min-width: 0; }
+  .prefijo { font-family: var(--f-mono); font-size: .85rem; color: var(--tinta-3); margin-bottom: 14px; overflow-wrap: anywhere; }
+  .prefijo em { font-style: normal; color: var(--tinta-2); background: var(--boli-suave); padding: 2px 6px; border-radius: 4px; }
+
+  .cadena { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 28px; font-family: var(--f-mono); font-size: .82rem; }
+  .cadena span { padding: 7px 11px; border: 1.5px solid var(--tinta); border-radius: 999px; background: var(--hoja); }
+  .cadena i { font-style: normal; color: var(--tinta-3); }
+  .cadena .vuelta { border-style: dashed; }
+  .cadena-titulo { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-3); margin-top: 26px; }
+
+  .apuntes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 40px; margin-top: 44px; }
+  @media (max-width: 760px) { .apuntes { grid-template-columns: 1fr; } }
+  .apunte h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+  .apunte p { color: var(--tinta-2); }
+  .apunte p + p { margin-top: 8px; }
+  .apunte code { font-family: var(--f-mono); font-size: .88em; background: var(--boli-suave); padding: 1px 5px; border-radius: 4px; color: var(--tinta); }
+
+  /* Dos modos */
+  .modos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 760px) { .modos { grid-template-columns: 1fr; } }
+  .modo { background: var(--hoja); border: 1px solid var(--borde); border-radius: 14px; padding: 26px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .modo h3 { font-size: 2rem; font-weight: 850; }
+  .modo .lema { color: var(--tinta-2); }
+  .modo dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: .95rem; }
+  .modo dt { font-family: var(--f-mono); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-3); padding-top: 3px; }
+  .modo dd { margin: 0; }
+  .modo.destacado { border: 2px solid var(--tinta); }
+
+  /* Preguntas */
+  .preguntas { max-width: 50rem; display: flex; flex-direction: column; gap: 0; border-top: 2px solid var(--tinta); }
+  .preguntas details { border-bottom: 1px solid var(--borde); }
+  .preguntas summary {
+    list-style: none; cursor: pointer; padding: 20px 40px 20px 0; position: relative;
+    font-family: var(--f-titular); font-stretch: 80%; font-weight: 750; font-size: 1.35rem; line-height: 1.2;
+  }
+  .preguntas summary::-webkit-details-marker { display: none; }
+  .preguntas summary::after { content: "+"; position: absolute; right: 6px; top: 16px; font-family: var(--f-mono); font-size: 1.5rem; color: var(--boli); }
+  .preguntas details[open] summary::after { content: "–"; }
+  .preguntas .respuesta { padding: 0 0 22px; color: var(--tinta-2); max-width: 44rem; }
+  .preguntas .respuesta p + p { margin-top: 10px; }
+
+  /* Cierre */
+  .cierre { padding-block: 90px 70px; text-align: left; }
+  .cierre h2 { font-size: clamp(2.6rem, 7vw, 5rem); font-weight: 900; font-stretch: 68%; max-width: 12em; margin-bottom: 26px; }
+
+  /* Huecos para anuncios: ocultos hasta que se configure AdSense.
+     Reservan su altura para que la página no "salte" al cargar el anuncio. */
+  .anuncio { padding-block: 24px; }
+  .anuncio .envoltorio { display: flex; flex-direction: column; gap: 8px; }
+  .anuncio ins { display: block; min-height: 250px; background: var(--hoja); border: 1px dashed var(--borde); border-radius: 10px; }
+
+  .legal { display: flex; gap: 18px; flex-wrap: wrap; }
+  .legal a { color: var(--tinta-2); }
+  footer { border-top: 1px solid var(--borde); padding-block: 30px 40px; color: var(--tinta-3); font-size: .88rem; }
+  footer .envoltorio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; }
+  footer p { max-width: 46rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="envoltorio">
+    <a class="marca" href="./" aria-label="audiopapel, inicio">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="var(--tinta)"/>
+        <g fill="#FFE75A"><rect x="6" y="13" width="4" height="4"/><rect x="6" y="18" width="4" height="4"/><rect x="11" y="8" width="4" height="4"/><rect x="11" y="13" width="4" height="4"/><rect x="11" y="18" width="4" height="4"/><rect x="11" y="23" width="4" height="4"/><rect x="16" y="11" width="4" height="4"/><rect x="16" y="16" width="4" height="4"/><rect x="16" y="21" width="4" height="4"/><rect x="21" y="15" width="4" height="4"/></g>
+        <circle cx="25" cy="7" r="3" fill="#D93B3B"/>
+      </svg>
+      <b>audiopapel<span>.com</span></b>
+    </a>
+    <nav class="menu" aria-label="Secciones">
+      <a href="#como">Cómo funciona</a>
+      <a href="#ideas">Ideas</a>
+      <a href="#dentro">Por dentro</a>
+      <a href="#preguntas">Preguntas</a>
+      <a class="boton pequeno" data-enlace-app href="audio_en_papel.html"><span class="punto" aria-hidden="true"></span>Abrir la herramienta</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ PORTADA ============================ -->
+  <section class="portada">
+    <div class="envoltorio">
+      <div>
+        <p class="etiqueta">Voz → papel → voz</p>
+        <h1><span class="linea">La voz,</span> <span class="linea"><span class="subrayado">en papel.</span></span></h1>
+        <p class="entradilla">audiopapel graba un mensaje, lo comprime <strong>más de cien veces</strong> y lo reparte en códigos QR que puedes imprimir, pegar o regalar. Cualquier móvil con cámara lo vuelve a hacer sonar. <strong>Sin apps, sin cuentas y sin servidores:</strong> la voz viaja en el papel.</p>
+        <div class="acciones">
+          <a class="boton" data-enlace-app href="audio_en_papel.html"><span class="punto" aria-hidden="true"></span>Grabar un mensaje</a>
+          <a class="boton claro" href="#como">Cómo funciona</a>
+        </div>
+        <div class="sellos">
+          <span>Funciona en el navegador</span>
+          <span>iPhone y Android</span>
+          <span>Hasta 3 minutos</span>
+          <span>Código visible y comentado</span>
+        </div>
+      </div>
+
+      <div class="tique-zona">
+        <div class="anotacion-qr" aria-hidden="true">
+          <span class="nota">¡Es de verdad!<br>escanéalo con el móvil</span>
+          <svg width="70" height="34" viewBox="0 0 70 34"><path d="M4 6 C 26 4, 48 10, 62 26" fill="none" stroke="var(--boli)" stroke-width="2" stroke-linecap="round"/><path d="M52 25 L63 27 L60 16" fill="none" stroke="var(--boli)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <figure class="tique" aria-labelledby="pie-tique" style="margin:0">
+          <div class="tique-cabeza">
+            <span>audiopapel</span>
+            <span class="rec"><i></i>mensaje</span>
+          </div>
+          <canvas id="onda" aria-hidden="true"></canvas>
+          <div class="qr-marco" id="qr" role="img" aria-label="Código QR con un mensaje de audiopapel. Escanéalo con la cámara del móvil para oírlo."></div>
+          <figcaption class="tique-pie" id="pie-tique">
+            <span>Código <b>1 de 1</b></span>
+            <span>ID <b id="qr-id">——————</b></span>
+            <span>QR v<b id="qr-version">–</b></span>
+          </figcaption>
+        </figure>
+        <div class="bajo-tique">
+          <p id="instruccion-qr">Apunta la cámara de tu móvil a este código: se abrirá audiopapel y te leerá el mensaje en voz alta.</p>
+          <div class="fila">
+            <button class="boton claro pequeno" type="button" id="btn-editar" aria-expanded="false" aria-controls="editor">✎ Escribir mi mensaje</button>
+            <a class="boton claro pequeno" id="enlace-demo" href="audio_en_papel.html">Abrirlo en este dispositivo</a>
+          </div>
+        </div>
+        <div class="editor" id="editor" hidden>
+          <label for="mensaje-demo">Tu mensaje (el QR se actualiza mientras escribes)</label>
+          <textarea id="mensaje-demo" maxlength="600"></textarea>
+          <div class="cuenta"><span id="cuenta-demo">0 / 600</span><span id="bytes-demo"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= CÓMO FUNCIONA ========================= -->
+  <section class="bloque" id="como">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Cómo funciona</p>
+        <h2>Tres pasos, ningún servidor.</h2>
+        <p>Todo ocurre dentro del navegador. Nada se sube a ningún sitio: el mensaje sale de tu móvil impreso en papel y vuelve a sonar en otro móvil.</p>
+      </div>
+      <div class="pasos">
+        <article class="paso">
+          <span class="num">1</span>
+          <h3>Graba</h3>
+          <p>Habla hasta tres minutos, carga un audio o dicta un texto. Codec 2, un códec de radioaficionados, deja cada segundo de voz en 150 bytes.</p>
+          <code>micrófono → 8 kHz → Codec 2</code>
+        </article>
+        <article class="paso">
+          <span class="num">2</span>
+          <h3>Imprime</h3>
+          <p>El mensaje se trocea en códigos QR numerados: «Código 2 de 6». Imprímelos, recórtalos, pégalos donde quieras o muéstralos en pantalla.</p>
+          <code>bytes → Base32 → trozos → QR</code>
+        </article>
+        <article class="paso">
+          <span class="num">3</span>
+          <h3>Escanea</h3>
+          <p>Con la cámara del móvil, en cualquier orden. La página marca en verde cada trozo recibido y, cuando están todos, reconstruye la voz y la reproduce.</p>
+          <code>cámara → ordenar → juntar → altavoz</code>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CIFRAS ============================= -->
+  <section aria-label="audiopapel en cifras">
+    <div class="envoltorio">
+      <div class="cifras">
+        <div class="cifra"><b>1.200<small>bit/s</small></b><span>lo que ocupa la voz: 150 bytes por segundo, menos que este párrafo.</span></div>
+        <div class="cifra"><b>107<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
+        <div class="cifra"><b>≈ 6<small>QR</small></b><span>por minuto de voz, con el tamaño de código recomendado.</span></div>
+        <div class="cifra"><b>0<small>servidores</small></b><span>tu voz no pasa por ningún ordenador ajeno. Viaja en el papel.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hueco de anuncio 1 (oculto hasta configurar AdSense al final de la página) -->
+  <aside class="anuncio" id="anuncio-1" aria-label="Publicidad" hidden>
+    <div class="envoltorio"><span class="etiqueta">Publicidad</span><ins class="adsbygoogle" data-ad-format="auto" data-full-width-responsive="true"></ins></div>
+  </aside>
+
+  <!-- ============================= IDEAS ============================= -->
+  <section class="bloque" id="ideas">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Ideas de uso</p>
+        <h2>Papeles que hablan.</h2>
+        <p>Un código QR cuesta lo que cuesta imprimirlo y dura lo que dure el papel. Estas son algunas cosas que se pueden hacer con él.</p>
+      </div>
+      <div class="ideas">
+        <article class="idea">
+          <span class="tipo">Familia</span>
+          <h3>Felicitaciones con voz</h3>
+          <p>La tarjeta de cumpleaños de los abuelos, pero con su voz dentro. Se abre con cualquier móvil, hoy o dentro de veinte años.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Recuerdos</span>
+          <h3>El recetario que habla</h3>
+          <p>Pega junto a cada receta la explicación de quien la inventó: «la masa, hasta que no se pegue a los dedos».</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Aula</span>
+          <h3>Murales y maquetas con audioguía</h3>
+          <p>Cada trabajo de la exposición escolar se explica solo. Sin wifi, sin app y sin pedir cuentas a nadie.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Accesibilidad</span>
+          <h3>Etiquetas que se escuchan</h3>
+          <p>Tarros, cajas, carpetas o la ropa de un familiar que ve poco: una etiqueta impresa que dice en voz alta qué es.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Juego</span>
+          <h3>Pistas para yincanas</h3>
+          <p>Escape rooms y búsquedas del tesoro con pistas de voz escondidas. Un mensaje partido en cinco QR obliga a encontrarlos todos.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Tecnología</span>
+          <h3>Una red de papel en clase</h3>
+          <p>Paquetes numerados, cabeceras, orden libre, compresión con pérdida: cómo viaja la información por Internet, con tijeras y celo.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Idiomas</span>
+          <h3>Fichas con pronunciación</h3>
+          <p>El vocabulario de la semana con la voz del profesor, o en modo texto para que el móvil lo lea en voz alta.</p>
+        </article>
+        <article class="idea">
+          <span class="tipo">Tiempo</span>
+          <h3>Cápsula del tiempo</h3>
+          <p>Un mensaje para abrir dentro de diez años. Los datos están en el papel, no en un servidor que pueda cerrar.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== POR DENTRO ========================== -->
+  <section class="bloque" id="dentro">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Por dentro</p>
+        <h2>Cada QR es un paquete de datos.</h2>
+        <p>audiopapel funciona como una red de ordenadores, pero en papel: el mensaje se parte en trozos con cabecera, los trozos llegan en cualquier orden y el receptor los vuelve a juntar. Así es por dentro uno de esos códigos:</p>
+      </div>
+
+      <div class="anatomia">
+        <p class="prefijo">https://audiopapel.com/audio_en_papel.html# <em>← todo lo que va tras «#» se queda en tu móvil: el navegador nunca lo envía al servidor</em></p>
+        <div class="desliza">
+          <div class="trama" role="img" aria-label="Estructura de un código: AUDIORR2, identificador K7P2QX, bloque 2 de 7, códec C2-1200 y datos en Base32">
+            <div class="campo c1"><span class="valor">AUDIORR2</span><span class="quees">protocolo, versión 2</span></div>
+            <span class="sep">:</span>
+            <div class="campo c2"><span class="valor">K7P2QX</span><span class="quees">identificador del mensaje</span></div>
+            <span class="sep">:</span>
+            <div class="campo c3"><span class="valor">2</span><span class="quees">este trozo…</span></div>
+            <span class="sep">:</span>
+            <div class="campo c4"><span class="valor">7</span><span class="quees">…de siete</span></div>
+            <span class="sep">:</span>
+            <div class="campo c5"><span class="valor">C2-1200</span><span class="quees">con qué descomprimir</span></div>
+            <span class="sep">:</span>
+            <div class="campo c6"><span class="valor">GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQMZXW6YTBOI…</span><span class="quees">la voz comprimida, en Base32</span></div>
+          </div>
+        </div>
+        <p class="cadena-titulo">Ida</p>
+        <div class="cadena" aria-label="Cadena del emisor">
+          <span>🎙 micrófono</span><i>→</i><span>8 kHz mono</span><i>→</i><span>Codec 2 · 1200 bit/s</span><i>→</i><span>Base32</span><i>→</i><span>trozos numerados</span><i>→</i><span>QR</span>
+        </div>
+        <p class="cadena-titulo">Vuelta</p>
+        <div class="cadena" aria-label="Cadena del receptor">
+          <span class="vuelta">📷 cámara</span><i>→</i><span class="vuelta">leer cabecera</span><i>→</i><span class="vuelta">ordenar y juntar</span><i>→</i><span class="vuelta">Codec 2</span><i>→</i><span class="vuelta">🔊 altavoz</span>
+        </div>
+      </div>
+
+      <div class="apuntes">
+        <div class="apunte">
+          <h3>Un vocoder, no una grabación</h3>
+          <p>Codec 2 no guarda la onda de sonido: guarda una <em>descripción</em> de la voz (tono, energía, forma de la boca) y el receptor la vuelve a sintetizar. Por eso suena algo robótica, y por eso cabe en tan poco.</p>
+          <p>Curiosidad: el mismo QR nunca produce dos veces el mismo archivo de audio, aunque suene igual.</p>
+        </div>
+        <div class="apunte">
+          <h3>Mayúsculas para caber más</h3>
+          <p>Un QR guarda los caracteres de dos formas: el modo <em>byte</em> admite cualquier letra y gasta 8 bits por carácter; el modo <em>alfanumérico</em> solo admite mayúsculas y cifras, pero gasta 5,5.</p>
+          <p>Por eso los datos van en Base32, solo con <code>A–Z</code> y <code>2–7</code>: un 22 % más de voz en cada código.</p>
+        </div>
+        <div class="apunte">
+          <h3>Orden libre, como en Internet</h3>
+          <p>Cada trozo dice qué número es y cuántos hay. Puedes escanearlos en cualquier orden y repetir alguno: el receptor los coloca en su sitio y avisa del primero que falta.</p>
+        </div>
+        <div class="apunte">
+          <h3>Un archivo que puedes guardar</h3>
+          <p>La herramienta es una sola página HTML con todo dentro: el códec (en WebAssembly), el generador y el lector de QR. Guarda una copia y tus papeles seguirán sonando aunque esta web desaparezca.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ DOS MODOS ========================== -->
+  <section class="bloque" id="modos">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Dos formas de guardar un mensaje</p>
+        <h2>Tu voz, o solo tus palabras.</h2>
+      </div>
+      <div class="modos">
+        <article class="modo destacado">
+          <h3>Modo audio</h3>
+          <p class="lema">Se guarda tu voz, con tu tono y tu forma de hablar.</p>
+          <dl>
+            <dt>Cabe</dt><dd>unos 6 QR por minuto (1.200 bit/s), o un 40 % menos a 700 bit/s</dd>
+            <dt>Suena</dt><dd>a radio de onda corta: robótica, pero inconfundiblemente tuya</dd>
+            <dt>Necesita</dt><dd>nada más que el navegador; funciona sin conexión</dd>
+          </dl>
+        </article>
+        <article class="modo">
+          <h3>Modo texto</h3>
+          <p class="lema">Se guarda lo que dices, y el móvil lo lee con su propia voz.</p>
+          <dl>
+            <dt>Cabe</dt><dd>un mensaje de varios minutos en un solo QR</dd>
+            <dt>Suena</dt><dd>con la voz sintética del teléfono que lo escanea</dd>
+            <dt>Necesita</dt><dd>Internet solo para dictar, porque el reconocimiento de voz lo hace el navegador; también puedes escribirlo</dd>
+          </dl>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hueco de anuncio 2 -->
+  <aside class="anuncio" id="anuncio-2" aria-label="Publicidad" hidden>
+    <div class="envoltorio"><span class="etiqueta">Publicidad</span><ins class="adsbygoogle" data-ad-format="auto" data-full-width-responsive="true"></ins></div>
+  </aside>
+
+  <!-- =========================== PREGUNTAS =========================== -->
+  <section class="bloque" id="preguntas">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Preguntas</p>
+        <h2>Lo que suele preguntarse.</h2>
+      </div>
+      <div class="preguntas">
+        <details>
+          <summary>¿Hay que instalar algo?</summary>
+          <div class="respuesta"><p>No. audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil. Si prefieres no depender de la conexión, puedes guardar la página y usarla sin Internet.</p></div>
+        </details>
+        <details>
+          <summary>¿Dónde se guarda mi voz?</summary>
+          <div class="respuesta"><p>En el papel, y en ningún sitio más. La página no tiene un servidor que reciba tus grabaciones: todo se procesa en tu dispositivo. Los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía.</p><p>La única excepción es el dictado del modo texto: el reconocimiento de voz lo hace el servicio del propio navegador (Google o Apple), igual que cuando dictas en el teclado del móvil.</p></div>
+        </details>
+        <details>
+          <summary>¿Por qué suena un poco robótica?</summary>
+          <div class="respuesta"><p>Porque para caber en papel la voz se comprime a 1.200 bits por segundo, menos del 1 % de lo que ocuparía sin comprimir. Codec 2, el códec que lo hace posible, se diseñó para radioaficionados: prioriza que se entienda lo que dices sobre la fidelidad del sonido.</p></div>
+        </details>
+        <details>
+          <summary>¿Cuánto puede durar un mensaje?</summary>
+          <div class="respuesta"><p>Hasta tres minutos. Un minuto de voz son unos 6 códigos con el tamaño recomendado. Si usas el tamaño máximo, tres minutos caben en 14 códigos, aunque cuestan más de leer con cámaras modestas.</p></div>
+        </details>
+        <details>
+          <summary>¿Y si se pierde uno de los códigos?</summary>
+          <div class="respuesta"><p>Sin todos los trozos el mensaje no se puede reconstruir, igual que un archivo al que le faltan páginas. El receptor te dice exactamente cuál falta. Para mensajes importantes, imprime dos copias.</p></div>
+        </details>
+        <details>
+          <summary>Mi móvil no consigue leer los códigos</summary>
+          <div class="respuesta"><p>Acerca el móvil hasta que el código llene el recuadro, busca buena luz y mantén el pulso. En Android, si la imagen sale borrosa, elige otra cámara en el desplegable: algunos móviles abren por defecto una gran angular que no enfoca de cerca. Y si aun así cuesta, genera los códigos con un tamaño más pequeño.</p></div>
+        </details>
+        <details>
+          <summary>¿Puedo usarlo en clase?</summary>
+          <div class="respuesta"><p>Para eso nació. El código está comentado en español paso a paso, del micrófono al altavoz, y sirve para hablar de compresión, codificación, protocolos de red, detección de errores y privacidad con un ejemplo que se puede tocar.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= CIERRE ============================ -->
+  <section class="cierre">
+    <div class="envoltorio">
+      <h2>Graba algo que merezca <span class="subrayado">guardarse en papel</span>.</h2>
+      <a class="boton" data-enlace-app href="audio_en_papel.html"><span class="punto" aria-hidden="true"></span>Abrir audiopapel</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="envoltorio">
+    <p><b>audiopapel.com</b> · la voz, en papel. Hecho para aprender cómo viaja la información.</p>
+    <nav class="legal" aria-label="Información legal"><a href="privacidad.html">Privacidad y cookies</a><a href="creditos.html">Créditos y licencias</a></nav>
+    <p>Con Codec 2 de David Rowe (LGPL 2.1), compilado a WebAssembly por codec2-web · qrcode-generator de Kazuhiko Arase (MIT) · jsQR de Cosmo Wolfe (Apache 2.0).</p>
+  </div>
+</footer>
+
+<!-- qrcode-generator 1.4.4 · MIT · https://github.com/kazuhikoarase/qrcode-generator -->
+<script>
+/**
+ * Minified by jsDelivr using Terser v5.37.0.
+ * Original file: /npm/qrcode-generator@1.4.4/qrcode.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,(function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1}))},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(){var t=n("友");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}((function(){return qrcode}));
+//# sourceMappingURL=/sm/26b4b0d0b1e283d6b3ec9857ac597d7a60c76ac17be1ef4c965f03086de426bb.map
+</script>
+
+<script>
+'use strict';
+/* =====================================================================
+   PORTADA DE audiopapel
+   El QR del tique es real: se genera aquí con el mismo protocolo que la
+   herramienta (AUDIORR2, modo texto) y apunta a ella, así que al
+   escanearlo se abre audiopapel y lee el mensaje en voz alta.
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+
+/* ---- Publicidad (AdSense) — DESACTIVADA ----
+   ANTES DE ACTIVARLA: con anuncios la web tiene actividad económica y la LSSI
+   obliga a identificar al titular. Lee pendiente_adsense/LEEME.txt y cambia
+   las páginas legales por las versiones completas de esa carpeta.
+   Después, cuando Google apruebe el sitio:
+     1. Pon tu identificador de editor en ADSENSE.cliente ("ca-pub-…").
+     2. Crea dos bloques de anuncios en AdSense y pon sus números en huecos.
+     3. Sube ads.txt a la raíz (ver ads.txt.plantilla).
+   Mientras cliente esté vacío no se carga NADA de Google: ni scripts ni cookies.
+   El aviso de consentimiento (obligatorio en la UE) lo muestra el propio
+   script de AdSense si activas "Privacidad y mensajes" en tu cuenta. */
+const ADSENSE = { cliente: '', huecos: { 'anuncio-1': '', 'anuncio-2': '' } };
+if (ADSENSE.cliente) {
+  const guion = document.createElement('script');
+  guion.async = true;
+  guion.crossOrigin = 'anonymous';
+  guion.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADSENSE.cliente);
+  document.head.appendChild(guion);
+  for (const [id, bloque] of Object.entries(ADSENSE.huecos)) {
+    if (!bloque) continue;
+    const hueco = document.getElementById(id);
+    const ins = hueco.querySelector('ins');
+    ins.dataset.adClient = ADSENSE.cliente;
+    ins.dataset.adSlot = bloque;
+    hueco.hidden = false;
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  }
+}
+
+// ---- Dónde está la herramienta ----
+// Los botones van a la herramienta junto a esta página. El QR necesita una
+// dirección que funcione en OTRO móvil: si esta portada se ha abierto desde
+// el ordenador (archivo, localhost o red de casa), usamos la oficial.
+const APP = new URL(document.querySelector('meta[name="audiopapel:app"]').content, location.href).href;
+document.querySelectorAll('[data-enlace-app]').forEach(a => { a.href = APP; });
+const esWeb = /^https?:$/.test(new URL(APP).protocol);
+const esLocal = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/.test(new URL(APP).hostname);
+const APP_QR = esWeb && !esLocal ? APP.split('#')[0].split('?')[0] : 'https://audiopapel.com/audio_en_papel.html';
+
+// ---- Base32 (el mismo que usa la herramienta) ----
+const ALFABETO_BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function bytesABase32(bytes) {
+  let salida = '', acumulado = 0, bits = 0;
+  for (const byte of bytes) {
+    acumulado = (acumulado << 8) | byte;
+    bits += 8;
+    while (bits >= 5) { salida += ALFABETO_BASE32[(acumulado >>> (bits - 5)) & 31]; bits -= 5; }
+    acumulado &= (1 << bits) - 1;
+  }
+  if (bits > 0) salida += ALFABETO_BASE32[(acumulado << (5 - bits)) & 31];
+  return salida;
+}
+
+// ---- Texto → bytes comprimidos (deflate), o tal cual si no hay compresor ----
+async function comprimirTexto(texto) {
+  const crudo = new TextEncoder().encode(texto);
+  if (typeof CompressionStream === 'undefined') return { codec: 'TXT', bytes: crudo };
+  const flujo = new Blob([crudo]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return { codec: 'TXT-Z', bytes: new Uint8Array(await new Response(flujo).arrayBuffer()) };
+}
+
+function idAleatorio() {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), b => alfabeto[b % alfabeto.length]).join('');
+}
+
+// ---- Pintar el QR del tique ----
+const MENSAJE_INICIAL = 'Hola. Este mensaje estaba impreso en un papel y ahora te lo está leyendo tu móvil. Así funciona audiopapel: la voz viaja en códigos QR, sin pasar por ningún servidor.';
+let turno = 0;
+
+async function pintarQR(texto, id) {
+  const miTurno = ++turno;
+  const { codec, bytes } = await comprimirTexto(texto.trim().replace(/\s+/g, ' ') || 'audiopapel');
+  if (miTurno !== turno) return;                         // llegó otra pulsación mientras comprimíamos
+  const carga = `AUDIORR2:${id}:1:1:${codec}:${bytesABase32(bytes)}`;
+  const enlace = APP_QR + '#' + carga;
+  let qr;
+  try {
+    qr = qrcode(0, 'M');
+    qr.addData(APP_QR + '#', 'Byte');                    // la dirección lleva minúsculas: modo byte
+    qr.addData(carga, 'Alphanumeric');                   // cabecera y datos: modo alfanumérico
+    qr.make();
+  } catch (_) {
+    $('bytes-demo').textContent = 'demasiado largo para un QR';
+    return;
+  }
+  $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  $('qr-id').textContent = id;
+  $('qr-version').textContent = (qr.getModuleCount() - 21) / 4 + 1;
+  $('enlace-demo').href = enlace;
+  $('bytes-demo').textContent = `${bytes.length} bytes comprimidos`;
+}
+
+// ---- Editor del mensaje ----
+const area = $('mensaje-demo');
+area.value = MENSAJE_INICIAL;
+const cuenta = () => { $('cuenta-demo').textContent = `${area.value.length} / ${area.maxLength}`; };
+cuenta();
+let idPropio = null, espera = null;
+area.addEventListener('input', () => {
+  cuenta();
+  idPropio = idPropio || idAleatorio();                  // un mensaje nuevo, un identificador nuevo
+  clearTimeout(espera);
+  espera = setTimeout(() => pintarQR(area.value, idPropio), 180);
+});
+$('btn-editar').addEventListener('click', () => {
+  const abierto = $('editor').hidden;
+  $('editor').hidden = !abierto;
+  $('btn-editar').setAttribute('aria-expanded', String(abierto));
+  if (abierto) area.focus();
+});
+
+// El QR inicial lleva siempre el mismo ID: si alguien lo escanea dos veces,
+// la herramienta reconoce el mensaje y lo vuelve a leer.
+pintarQR(MENSAJE_INICIAL, 'HOLA42');
+
+// En el móvil no puedes escanear tu propia pantalla: te lo decimos.
+if (matchMedia('(pointer: coarse)').matches && innerWidth < 900) {
+  $('instruccion-qr').textContent = 'Si estás en el móvil, no puedes escanear tu propia pantalla: ábrelo aquí mismo, o escanéalo desde otro teléfono.';
+}
+
+/* ---- La onda del tique: una onda de voz dibujada con módulos de QR ----
+   Cada columna es un instante; su altura, el volumen en ese instante.
+   Una "cabeza lectora" recorre la onda como si se estuviera reproduciendo. */
+(function onda() {
+  const lienzo = $('onda');
+  const ctx = lienzo.getContext('2d');
+  const COLS = 34, FILAS = 9;
+  // Volumen de una frase inventada: sílabas que suben y bajan, con pausas.
+  let semilla = 7;
+  const azar = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647);
+  const alturas = Array.from({ length: COLS }, (_, i) => {
+    const silaba = Math.abs(Math.sin(i * 0.9) * Math.sin(i * 0.23 + 1));
+    const pausa = (i % 11 === 10) ? 0.15 : 1;
+    return Math.max(1, Math.round((0.25 + 0.75 * silaba) * pausa * FILAS * (0.75 + azar() * 0.35)));
+  });
+  let cabeza = 0;
+  const reducido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function dibujar() {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const ancho = lienzo.clientWidth, alto = lienzo.clientHeight;
+    if (lienzo.width !== Math.round(ancho * dpr)) { lienzo.width = Math.round(ancho * dpr); lienzo.height = Math.round(alto * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, ancho, alto);
+    const paso = ancho / COLS, lado = Math.floor(Math.min(paso, alto / FILAS) * 0.78);
+    for (let c = 0; c < COLS; c++) {
+      const h = alturas[c];
+      const medio = Math.floor((FILAS - h) / 2);
+      for (let f = 0; f < h; f++) {
+        const x = c * paso + (paso - lado) / 2;
+        const y = (medio + f) * (alto / FILAS) + (alto / FILAS - lado) / 2;
+        const leida = reducido || c <= cabeza;
+        ctx.fillStyle = leida ? '#151C2C' : 'rgba(21, 28, 44, .18)';
+        if (c === cabeza && !reducido) ctx.fillStyle = '#D93B3B';
+        ctx.fillRect(Math.round(x), Math.round(y), lado, lado);
+      }
+    }
+  }
+  dibujar();
+  addEventListener('resize', dibujar);
+  if (!reducido) setInterval(() => { cabeza = (cabeza + 1) % (COLS + 8); dibujar(); }, 110);
+})();
+</script>
+</body>
+</html>

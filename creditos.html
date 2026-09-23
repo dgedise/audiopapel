@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Créditos y licencias · audiopapel</title>
+<meta name="description" content="El software libre que hace posible audiopapel (Codec 2, qrcode-generator, jsQR) y las condiciones de uso de la herramienta.">
+<link rel="canonical" href="https://audiopapel.com/creditos.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="fuentes/fuentes.css">
+<style>
+  :root { --papel: #FAFBF8; --tinta: #151C2C; --tinta-2: #475069; --boli: #2346B0; }
+  @media (prefers-color-scheme: dark) { :root { color-scheme: dark; --papel: #0F141D; --tinta: #E9EDF4; --tinta-2: #B3BCCD; --boli: #93B1FF; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--papel); color: var(--tinta); font: 1.05rem/1.65 "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 28px 16px 60px; }
+  a { color: var(--boli); }
+  .volver { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+  h1, h2 { font-family: "Archivo", "Arial Narrow", sans-serif; font-stretch: 75%; font-weight: 850; line-height: 1.05; }
+  h1 { font-size: 2.6rem; margin: 18px 0 8px; }
+  h2 { font-size: 1.6rem; margin: 34px 0 8px; }
+  .fecha { color: var(--tinta-2); font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+  <a class="volver" href="./">← audiopapel</a>
+  <h1>Créditos y licencias</h1>
+  <p class="fecha">Última actualización: 23 de septiembre de 2026</p>
+
+  <h2>Hecho con software libre</h2>
+  <p>audiopapel existe gracias a proyectos que otras personas publicaron para que cualquiera pudiera usarlos:</p>
+  <ul>
+    <li><strong>Codec 2</strong>, de David Rowe: el códec que comprime la voz hasta 1.200 bits por segundo. Licencia LGPL 2.1; código fuente en <a href="https://github.com/drowe67/codec2">github.com/drowe67/codec2</a>. Compilado a WebAssembly por el proyecto <a href="https://github.com/belteshazzar/codec2-web">codec2-web</a> (MIT).</li>
+    <li><strong>qrcode-generator</strong>, de Kazuhiko Arase: dibuja los códigos QR. Licencia MIT.</li>
+    <li><strong>jsQR</strong>, de Cosmo Wolfe: lee los códigos con la cámara. Licencia Apache 2.0.</li>
+    <li>Tipografías <strong>Archivo</strong>, <strong>Atkinson Hyperlegible</strong>, <strong>IBM Plex Mono</strong> y <strong>Kalam</strong>, bajo licencia SIL Open Font License.</li>
+  </ul>
+  <p>«QR Code» es una marca registrada de DENSO WAVE INCORPORATED.</p>
+
+  <h2>Licencia de audiopapel</h2>
+  <p>El código y los textos propios de audiopapel se publican bajo la <a href="https://polyformproject.org/licenses/noncommercial/1.0.0">PolyForm Noncommercial License 1.0.0</a>: puedes usarlos, estudiarlos, modificarlos y compartirlos gratis para cualquier fin <strong>no comercial</strong>, en clase, en casa o en un proyecto personal. Para un uso comercial, pide permiso por la vía de contacto. El código está en <a href="https://github.com/dgedise/audiopapel">github.com/dgedise/audiopapel</a>.</p>
+
+  <h2>Condiciones de uso</h2>
+  <p>audiopapel es una herramienta gratuita, con fines educativos y personales, que se ofrece tal cual. Quien la usa es responsable de los mensajes que graba, imprime y comparte, y de contar con el permiso de las personas cuya voz registra.</p>
+  <p>Un mensaje solo se puede recuperar si se conservan y se leen todos sus códigos. No se garantiza que pueda recuperarse si falta alguno o está dañado.</p>
+
+  <h2>Contacto</h2>
+  <p>Para dudas, errores o sugerencias, <a href="https://github.com/dgedise/audiopapel/issues">abre una incidencia en el repositorio del proyecto</a>.</p>
+
+  <h2>Privacidad</h2>
+  <p>audiopapel no recoge datos personales. Los detalles están en <a href="privacidad.html">privacidad y cookies</a>.</p>
+</main>
+</body>
+</html>

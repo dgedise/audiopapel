@@ -1,0 +1,2208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grabar un mensaje de voz en códigos QR · audiopapel</title>
+<meta name="description" content="Graba o dicta un mensaje y conviértelo en códigos QR para imprimir. Escanéalos con el móvil para volver a oírlo. Todo en tu navegador, sin subir nada.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://audiopapel.com/audio_en_papel.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="audiopapel">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://audiopapel.com/audio_en_papel.html">
+<meta property="og:title" content="audiopapel · Graba tu voz en papel">
+<meta property="og:description" content="Graba un mensaje de voz y conviértelo en códigos QR que cualquier móvil vuelve a hacer sonar.">
+<meta property="og:image" content="https://audiopapel.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#FAFBF8">
+<!-- Tipografías de audiopapel, desde el propio sitio. Si abres este archivo
+     suelto o sin conexión, usa las del sistema y funciona exactamente igual:
+     solo cambia el aspecto de las letras. -->
+<link rel="stylesheet" href="fuentes/fuentes.css">
+<!--
+  =====================================================================
+   AUDIO EN PAPEL  ·  Almacenador de audio mediante códigos QR encadenados
+  =====================================================================
+
+   ¿QUÉ SIMULAMOS AQUÍ?
+   Una "red analógica": el emisor convierte la voz en bytes, los parte en
+   paquetes numerados y los "transmite" imprimiéndolos como códigos QR.
+   El receptor recibe los paquetes en cualquier orden (los escanea con la
+   cámara), los reordena por su número, comprueba que no falta ninguno y
+   reconstruye el audio original.  Es la misma idea que usa TCP/IP para
+   enviar un archivo troceado en paquetes por Internet, pero con papel.
+
+   DOS FORMAS DE GUARDAR LA VOZ (se eligen en la pestaña 1)
+
+   A) MODO AUDIO  ·  se guarda la ONDA, comprimida
+      micrófono → MediaRecorder (Opus) → decodificar a PCM
+      → remuestrear a 8 kHz mono → Codec 2 (1200 ó 700 bit/s)
+      → bytes → Base64 → trocear → cabecera AUDIORR → códigos QR
+      El receptor recupera una voz robótica, pero con TU entonación.
+
+   B) MODO TEXTO  ·  se guarda solo lo que DICES  (compresión extrema)
+      micrófono → reconocimiento de voz del navegador → texto (editable)
+      → deflate → Base64 → trocear → cabecera AUDIORR → códigos QR
+      El receptor lee el texto en voz alta con la voz sintética del sistema.
+      Tres minutos de mensaje caben en UN SOLO QR, pero se pierde la voz:
+      quién habla, cómo lo dice y con qué tono. Es el extremo de la
+      compresión con pérdida: ya no comprimimos la señal, sino el SIGNIFICADO.
+
+   CADENA DEL RECEPTOR
+      cámara → texto del QR → leer cabecera → guardar bloque N de TOTAL
+      → ¿están todos? → juntar Base64 → bytes → según el códec:
+         audio → Codec 2 decodificar → PCM 8 kHz → WAV → altavoces
+         texto → inflate → mostrar en pantalla → voz sintética
+
+   PROTOCOLO (una línea de texto dentro de cada QR)
+      AUDIORR2:[ID]:[BLOQUE]:[TOTAL]:[CODEC]:[DATOS_BASE32]      ← versión 2
+      AUDIORR:[ID]:[BLOQUE]:[TOTAL]:[CODEC]:[DATOS_BASE64]       ← versión 1
+        La versión 2 es la que genera esta aplicación: todo en MAYÚSCULAS,
+        cifras y ':', para que el QR use su modo ALFANUMÉRICO, que guarda
+        cada carácter en 5,5 bits en vez de 8. Cabe un 22 % más de voz por
+        QR. La versión 1 se sigue leyendo, para no inutilizar lo ya impreso.
+        ID      6 caracteres aleatorios: identifica el mensaje. Si el receptor
+                ve un ID nuevo, olvida lo anterior y empieza de cero.
+        BLOQUE  número de este trozo, empezando en 1.
+        TOTAL   cuántos trozos tiene el mensaje completo.
+        CODEC   con qué descomprimir los bytes:
+                  "C2-1200" / "C2-700"  → audio comprimido con Codec 2
+                  "TXT-Z" / "TXT"       → texto (comprimido con deflate o plano)
+        DATOS   el trozo de mensaje comprimido: Base32 (v2) o Base64 (v1).
+
+   ESTE ARCHIVO ES AUTOSUFICIENTE: no necesita Internet.  Al final del
+   archivo van incrustadas las tres librerías que usa:
+      · Codec 2 compilado a WebAssembly  (LGPL 2.1, codec2-web / drowe67)
+      · qrcode-generator                 (MIT, Kazuhiko Arase)
+      · jsQR                             (Apache 2.0, Cosmo Wolfe)
+   El código de la aplicación (lo que interesa en clase) está justo
+   debajo de la parte HTML/CSS, en el bloque "APLICACIÓN".
+  =====================================================================
+-->
+<style>
+  /* =================================================================
+     IMAGEN DE audiopapel (la misma que la portada, sin la cuadrícula)
+     Tinta azul-negra, azul bolígrafo, subrayador amarillo y el rojo
+     de grabación. El modo oscuro es una pizarra; los QR siempre van
+     sobre blanco, porque tienen que poder escanearse.
+     ================================================================= */
+  :root {
+    --papel: #FAFBF8;
+    --hoja: #FFFFFF;
+    --hundido: #F2F4F7;
+    --tinta: #151C2C;
+    --tinta-2: #475069;
+    --tinta-3: #6B7389;
+    --boli: #2346B0;
+    --boli-suave: rgba(35, 70, 176, .08);
+    --subrayado: #FFE75A;
+    --rec: #D93B3B;
+    --rec-suave: rgba(217, 59, 59, .09);
+    --ok: #1F8A4C;
+    --ok-suave: rgba(31, 138, 76, .10);
+    --aviso: #B7791F;
+    --aviso-suave: rgba(214, 158, 46, .14);
+    --borde: #DCE1EA;
+    --sombra-papel: 0 1px 2px rgba(21, 28, 44, .06), 0 10px 24px -14px rgba(21, 28, 44, .28);
+    --boton-texto: #FFFFFF;
+    --radio: 14px;
+
+    --f-titular: "Archivo", "Arial Narrow", "Roboto Condensed", sans-serif;
+    --f-texto: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --papel: #0F141D; --hoja: #161D2A; --hundido: #1B2433;
+      --tinta: #E9EDF4; --tinta-2: #B3BCCD; --tinta-3: #8D97AB;
+      --boli: #93B1FF; --boli-suave: rgba(147, 177, 255, .10);
+      --subrayado: rgba(242, 213, 68, .38);
+      --rec: #F06A6A; --rec-suave: rgba(240, 106, 106, .12);
+      --ok: #4CC47E; --ok-suave: rgba(76, 196, 126, .12);
+      --aviso: #E3B341; --aviso-suave: rgba(227, 179, 65, .12);
+      --borde: #283246;
+      --sombra-papel: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 28px -14px rgba(0, 0, 0, .7);
+      --boton-texto: #0F141D;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --papel: #0F141D; --hoja: #161D2A; --hundido: #1B2433;
+    --tinta: #E9EDF4; --tinta-2: #B3BCCD; --tinta-3: #8D97AB;
+    --boli: #93B1FF; --boli-suave: rgba(147, 177, 255, .10);
+    --subrayado: rgba(242, 213, 68, .38);
+    --rec: #F06A6A; --rec-suave: rgba(240, 106, 106, .12);
+    --ok: #4CC47E; --ok-suave: rgba(76, 196, 126, .12);
+    --aviso: #E3B341; --aviso-suave: rgba(227, 179, 65, .12);
+    --borde: #283246;
+    --sombra-papel: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 28px -14px rgba(0, 0, 0, .7);
+    --boton-texto: #0F141D;
+  }
+
+  /* ---------- Base ---------- */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--f-texto); font-size: 1rem; line-height: 1.5;
+    background: var(--papel); color: var(--tinta);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: var(--f-titular); font-stretch: 75%; font-weight: 800; line-height: 1.05; margin: 0 0 .6rem; text-wrap: balance; }
+  h2 { font-size: 1.65rem; }
+  p { margin: .4rem 0; }
+  a { color: var(--boli); text-underline-offset: 3px; }
+  small, .suave { color: var(--tinta-2); }
+  code { font-family: var(--f-mono); font-size: .88em; background: var(--boli-suave); padding: .05em .4em; border-radius: 4px; color: var(--tinta); }
+  :focus-visible { outline: 3px solid var(--boli); outline-offset: 2px; border-radius: 6px; }
+
+  /* ---------- Cabecera y pestañas ---------- */
+  .cabecera { border-bottom: 1px solid var(--borde); background: var(--papel); }
+  .cabecera .contenido { max-width: 1100px; margin: 0 auto; padding: 16px 16px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
+  .marca { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-size: inherit; }
+  .marca a { display: inline-flex; align-items: center; gap: 10px; color: var(--tinta); text-decoration: none; }
+  .marca svg { width: 30px; height: 30px; flex: none; }
+  .marca b { font-family: var(--f-titular); font-stretch: 80%; font-weight: 850; font-size: 1.45rem; letter-spacing: -.01em; }
+  .marca .protocolo { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-3); font-weight: 500; }
+  @media (max-width: 560px) { .marca .protocolo { display: none; } }
+
+  /* Las dos pestañas, como un interruptor */
+  nav.pestanas { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--hundido); border: 1px solid var(--borde); }
+  nav.pestanas button {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--f-titular); font-stretch: 85%; font-weight: 750; font-size: 1rem;
+    padding: 9px 18px; border: 0; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--tinta-2); transition: background .15s, color .15s;
+  }
+  nav.pestanas button:hover { color: var(--tinta); }
+  nav.pestanas button.activa { background: var(--tinta); color: var(--boton-texto); }
+  nav.pestanas .n { font-family: var(--f-mono); font-size: .72rem; font-weight: 600; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; border: 1.5px solid currentColor; }
+  @media (max-width: 560px) { nav.pestanas { width: 100%; } nav.pestanas button { flex: 1; justify-content: center; padding: 9px 10px; font-size: .95rem; } }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 22px 16px 40px; }
+  section.pestana { display: none; }
+  section.pestana.activa { display: block; }
+
+  /* ---------- Componentes ---------- */
+  .tarjeta {
+    background: var(--hoja); border: 1px solid var(--borde); border-radius: var(--radio);
+    padding: 20px; margin-bottom: 18px;
+  }
+  .fila { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .fila > label, #controles-camara label {
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: var(--f-mono); font-size: .7rem; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--tinta-3);
+  }
+  select, input[type=file], textarea {
+    font: inherit; font-family: var(--f-texto); font-size: .95rem; letter-spacing: 0; text-transform: none;
+    padding: 9px 12px; border: 1.5px solid var(--borde); border-radius: 10px;
+    background: var(--hoja); color: var(--tinta);
+  }
+  select:hover, textarea:hover { border-color: var(--tinta-3); }
+  select:focus, textarea:focus { outline: none; border-color: var(--boli); box-shadow: 0 0 0 3px var(--boli-suave); }
+  input[type=file] { padding: 7px 10px; max-width: 100%; }
+  input[type=file]::file-selector-button {
+    font: inherit; font-family: var(--f-titular); font-stretch: 85%; font-weight: 700; margin-right: 10px;
+    padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--tinta); background: transparent; color: var(--tinta); cursor: pointer;
+  }
+  textarea { width: 100%; min-height: 70px; font-family: var(--f-mono); font-size: .85rem; }
+
+  button.boton {
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    font-family: var(--f-titular); font-stretch: 85%; font-weight: 750; font-size: 1.02rem; letter-spacing: .01em;
+    padding: 10px 20px; border: 2px solid var(--tinta); border-radius: 999px;
+    background: var(--tinta); color: var(--boton-texto); cursor: pointer;
+    transition: transform .12s ease, box-shadow .15s ease, background .15s;
+  }
+  button.boton:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px var(--tinta); }
+  button.boton:active { transform: translateY(0); }
+  button.boton:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+  button.boton.secundario { background: transparent; color: var(--tinta); }
+  button.boton.secundario:hover { background: var(--boli-suave); box-shadow: none; }
+  button.boton.peligro { background: var(--rec); border-color: var(--rec); }
+  button.boton.boton-grande { font-size: 1.3rem; padding: 18px 28px; width: 100%; max-width: 480px; }
+
+  /* Grabar: el punto rojo de siempre; grabando, botón rojo con un "stop" */
+  #btn-grabar::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 0 3px rgba(217, 59, 59, .28); }
+  button.boton.grabando { background: var(--rec); border-color: var(--rec); color: #FFFFFF; animation: latido 1.2s infinite; }
+  button.boton.grabando::before { background: #FFFFFF !important; border-radius: 2px !important; box-shadow: none !important; }
+  @keyframes latido { 0%,100% { box-shadow: 0 0 0 0 rgba(217, 59, 59, .45); } 50% { box-shadow: 0 0 0 10px rgba(217, 59, 59, 0); } }
+
+  .estado {
+    margin: 14px 0 0; padding: 11px 14px; border-radius: 10px; font-size: .95rem;
+    background: var(--boli-suave); border-left: 4px solid var(--boli); color: var(--tinta);
+  }
+  .estado.error { background: var(--rec-suave); border-color: var(--rec); }
+  .estado.ok { background: var(--ok-suave); border-color: var(--ok); }
+  .estado.aviso { background: var(--aviso-suave); border-color: var(--aviso); }
+
+  #texto-mensaje { min-height: 120px; font-family: var(--f-texto); font-size: 1.05rem; line-height: 1.5; }
+  .texto-recibido {
+    font-size: 1.2rem; line-height: 1.55; background: #FFFFFF; color: #151C2C;
+    border: 1px solid var(--borde); border-radius: 10px; padding: 16px 18px; white-space: pre-wrap;
+    box-shadow: var(--sombra-papel);
+  }
+  .contador { font-family: var(--f-titular); font-stretch: 70%; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 2.1rem; line-height: 1; min-width: 4ch; }
+
+  /* Cifras de la compresión, como en la portada */
+  .estadisticas {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); margin-top: 14px;
+    border-top: 2px solid var(--tinta); border-bottom: 2px solid var(--tinta);
+  }
+  .estadisticas div { padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--borde); }
+  .estadisticas div:last-child { border-right: 0; }
+  .estadisticas b { font-family: var(--f-titular); font-stretch: 70%; font-weight: 850; font-size: 1.7rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .estadisticas span { font-family: var(--f-mono); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-3); }
+
+  /* ---------- Lista de QRs: cada uno, un tique de papel ---------- */
+  .tarjetas-qr { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+  .tarjeta-qr {
+    background: #FFFFFF; color: #151C2C; border: 1px solid #E3E7EE; border-radius: 6px;
+    padding: 16px 16px 12px; text-align: center; break-inside: avoid; box-shadow: var(--sombra-papel);
+  }
+  .tarjeta-qr .titulo { font-family: var(--f-titular); font-stretch: 78%; font-weight: 800; font-size: 1.3rem; margin-bottom: 10px; }
+  .tarjeta-qr svg { width: 100%; height: auto; display: block; }
+  .tarjeta-qr .pie { font-family: var(--f-mono); font-size: .7rem; color: #5A6278; margin-top: 10px; padding-top: 8px; border-top: 1.5px dashed #C9CFDA; }
+
+  /* ---------- Receptor ---------- */
+  #visor { position: relative; width: 100%; max-width: 640px; margin: 16px auto 0; border-radius: var(--radio); overflow: hidden; background: #000; cursor: crosshair; }
+  /* object-fit: contain evita que el vídeo se deforme si el contenedor no
+     tiene la misma proporción que el sensor de la cámara. */
+  #visor video { display: block; width: 100%; height: auto; object-fit: contain; background: #000; }
+  /* Mira CUADRADA (un QR es cuadrado): el lado se mide sobre la ALTURA del
+     visor, así sigue siendo un cuadrado sea cual sea la proporción del vídeo. */
+  #visor .mira {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    height: 88%; aspect-ratio: 1; border: 3px dashed rgba(255, 255, 255, .85);
+    border-radius: 12px; pointer-events: none;
+  }
+  #visor.leido .mira { border-color: #4CC47E; border-style: solid; }
+  #visor .pista {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 7px 10px;
+    background: rgba(15, 20, 29, .6); color: #fff; font-family: var(--f-mono); font-size: .72rem; letter-spacing: .04em; text-align: center; pointer-events: none;
+  }
+  #registro-dictado {
+    max-height: 220px; overflow: auto; background: #10151F; color: #D6E2F5;
+    padding: 10px; border-radius: 8px; font-family: var(--f-mono); font-size: .72rem; line-height: 1.35;
+    white-space: pre-wrap; word-break: break-word; margin: 6px 0 0;
+  }
+  #controles-camara { margin-top: 12px; font-size: .9rem; }
+  #controles-camara select { max-width: 60vw; }
+  #zoom { width: 130px; vertical-align: middle; accent-color: var(--boli); }
+  #diag-camara { font-family: var(--f-mono); font-size: .72rem; }
+
+  .guia {
+    font-family: var(--f-titular); font-stretch: 78%; font-weight: 800; font-size: 1.6rem; line-height: 1.15;
+    text-align: center; padding: 16px; border-radius: 12px;
+    background: var(--subrayado); color: #151C2C;
+  }
+  .guia.completo { background: var(--ok-suave); color: var(--ok); }
+  .panel-bloques { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .badge {
+    min-width: 92px; padding: 8px 12px; border-radius: 999px; text-align: center;
+    font-family: var(--f-mono); font-weight: 600; font-size: .8rem; color: #fff;
+    transition: background .2s, transform .2s;
+  }
+  .badge.falta { background: #D93B3B; }
+  .badge.ok { background: #1F8A4C; transform: scale(1.04); }
+  audio { width: 100%; margin-top: 12px; }
+  details summary { cursor: pointer; font-weight: 700; color: var(--boli); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  .pie { max-width: 1100px; margin: 0 auto; padding: 0 16px 36px; display: flex; flex-wrap: wrap; gap: 18px; font-size: .88rem; }
+  .pie a { color: var(--tinta-2); }
+
+  /* ---------- Impresión: solo las tarjetas QR ---------- */
+  @media print {
+    body { background: #fff; }
+    header, nav, .no-imprimir, #tab-receptor { display: none !important; }
+    #tab-emisor { display: block !important; }
+    main { max-width: none; padding: 0; }
+    .tarjeta { border: 0; box-shadow: none; padding: 0; }
+    .tarjetas-qr { grid-template-columns: repeat(2, 1fr); gap: 8mm; }
+    .tarjeta-qr { border: 1px dashed #999; box-shadow: none; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header class="cabecera">
+  <div class="contenido">
+    <h1 class="marca">
+      <a href="index.html" title="Qué es audiopapel">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="#151C2C"/>
+          <g fill="#FFE75A"><rect x="6" y="13" width="4" height="4"/><rect x="6" y="18" width="4" height="4"/><rect x="11" y="8" width="4" height="4"/><rect x="11" y="13" width="4" height="4"/><rect x="11" y="18" width="4" height="4"/><rect x="11" y="23" width="4" height="4"/><rect x="16" y="11" width="4" height="4"/><rect x="16" y="16" width="4" height="4"/><rect x="16" y="21" width="4" height="4"/><rect x="21" y="15" width="4" height="4"/></g>
+          <circle cx="25" cy="7" r="3" fill="#D93B3B"/>
+        </svg>
+        <b>audiopapel</b>
+      </a>
+      <span class="protocolo">protocolo AUDIORR2 · todo en tu navegador</span>
+    </h1>
+    <nav class="pestanas" aria-label="Pestañas">
+      <button id="btn-tab-emisor" class="activa" data-tab="emisor"><span class="n" aria-hidden="true">1</span>Grabar y crear QR</button>
+      <button id="btn-tab-receptor" data-tab="receptor"><span class="n" aria-hidden="true">2</span>Escanear y escuchar</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================================================ -->
+  <!--  PESTAÑA 1 · EMISOR                                           -->
+  <!-- ============================================================ -->
+  <section id="tab-emisor" class="pestana activa">
+
+    <div class="tarjeta no-imprimir">
+      <h2>1 · Graba el mensaje</h2>
+      <div class="fila">
+        <button id="btn-grabar" class="boton">Grabar</button>
+        <span id="contador" class="contador">0:00</span>
+        <span class="suave">máx. 3:00</span>
+        <label>o carga un audio (wav, mp3, ogg…)
+          <input type="file" id="archivo-audio" accept="audio/*">
+        </label>
+      </div>
+      <div class="fila" style="margin-top:12px">
+        <label>Códec de voz
+          <select id="sel-codec">
+            <option value="C2-1200" selected>Audio · Codec 2 1200 bit/s (mejor calidad)</option>
+            <option value="C2-700">Audio · Codec 2 700 bit/s (menos QRs)</option>
+            <option value="TXT-Z">Texto · dictado + voz sintética (1 solo QR)</option>
+          </select>
+        </label>
+        <label>Tamaño de cada QR
+          <select id="sel-tamano">
+            <option value="23">Pequeño · QR versión 23 (fácil de leer, más QRs)</option>
+            <option value="29">Medio · QR versión 29</option>
+            <option value="35" selected>Grande · QR versión 35</option>
+            <option value="40">Máximo · QR versión 40 (difícil con webcam)</option>
+          </select>
+        </label>
+      </div>
+      <!-- Registro técnico del dictado: plegado, solo para diagnosticar. -->
+      <!-- Solo visible en modo TEXTO: lo que se ha dictado, siempre editable. -->
+      <div id="panel-texto" style="display:none; margin-top:12px">
+        <label class="suave" for="texto-mensaje">Texto del mensaje (corrígelo o escríbelo directamente)</label>
+        <textarea id="texto-mensaje" placeholder="Pulsa «Dictar» y habla, o escribe aquí el mensaje…"></textarea>
+        <div class="fila" style="margin-top:8px">
+          <button id="btn-generar-texto" class="boton">Crear los QR del texto</button>
+          <button id="btn-probar-voz" class="boton secundario">Oír cómo sonará</button>
+          <span id="cuenta-texto" class="suave"></span>
+        </div>
+        <details id="detalle-dictado" style="margin-top:8px">
+          <summary>Ver detalle técnico del dictado (para diagnosticar duplicados)</summary>
+          <p class="suave">Ábrelo ANTES de pulsar «Dictar». Cada línea es un evento tal como lo entrega el navegador: <code>idx</code> = desde dónde dice que hay novedades, <code>n</code> = cuántos resultados manda, <code>F</code> = definitivo, <code>i</code> = provisional.</p>
+          <pre id="registro-dictado"></pre>
+        </details>
+      </div>
+      <p id="estado-emisor" class="estado" style="margin-top:12px">Cargando Codec 2…</p>
+      <div id="previsualizacion" style="display:none">
+        <p class="suave" style="margin-top:10px">Así sonará tras pasar por Codec 2 (esto es lo que oirá el receptor):</p>
+        <audio id="audio-previo" controls></audio>
+      </div>
+    </div>
+
+    <div class="tarjeta" id="bloque-resultado" style="display:none">
+      <div class="no-imprimir">
+        <h2>2 · Códigos QR generados</h2>
+        <div class="estadisticas" id="estadisticas"></div>
+        <div class="fila" style="margin-top:12px">
+          <button id="btn-imprimir" class="boton secundario">Imprimir</button>
+          <button id="btn-simular" class="boton secundario">Simular el escaneo (sin cámara)</button>
+        </div>
+        <p class="suave">Consejo: si la cámara del receptor no consigue leer los QRs, vuelve a generar con un tamaño de QR más pequeño.</p>
+      </div>
+      <div id="tarjetas-qr" class="tarjetas-qr" style="margin-top:12px"></div>
+    </div>
+
+  </section>
+
+  <!-- ============================================================ -->
+  <!--  PESTAÑA 2 · RECEPTOR                                         -->
+  <!-- ============================================================ -->
+  <section id="tab-receptor" class="pestana">
+
+    <div class="tarjeta">
+      <h2>Escanea los códigos, en cualquier orden</h2>
+      <div class="fila">
+        <button id="btn-camara" class="boton">Iniciar cámara</button>
+        <label>o sube una foto / imagen de un QR
+          <input type="file" id="archivo-imagen" accept="image/*">
+        </label>
+        <button id="btn-reiniciar" class="boton secundario">Empezar de cero</button>
+      </div>
+      <div id="visor" style="display:none">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="mira"></div>
+        <div class="pista">Toca la imagen para enfocar ahí</div>
+      </div>
+      <div class="fila" id="controles-camara" style="display:none">
+        <label>Cámara
+          <select id="sel-camara"></select>
+        </label>
+        <button id="btn-enfocar" class="boton secundario">Enfocar</button>
+        <button id="btn-linterna" class="boton secundario" style="display:none">Linterna</button>
+        <label id="ctrl-zoom" style="display:none">Zoom
+          <input type="range" id="zoom">
+        </label>
+        <span id="diag-camara" class="suave"></span>
+      </div>
+      <p id="estado-receptor" class="estado" style="margin-top:12px">Pulsa «Iniciar cámara» y apunta al primer QR.</p>
+    </div>
+
+    <div class="tarjeta">
+      <div id="guia" class="guia">Esperando el primer código QR…</div>
+      <div id="panel-bloques" class="panel-bloques"></div>
+    </div>
+
+    <!-- Aparece solo si el navegador ha bloqueado el sonido automático. -->
+    <div class="tarjeta" id="bloque-toque" style="display:none; text-align:center">
+      <button id="btn-toque" class="boton boton-grande">▶ Toca para escuchar el mensaje</button>
+    </div>
+
+    <div class="tarjeta" id="bloque-audio" style="display:none">
+      <h2>Mensaje reconstruido</h2>
+      <p id="info-audio" class="suave"></p>
+      <audio id="audio-final" controls></audio>
+    </div>
+
+    <div class="tarjeta" id="bloque-texto" style="display:none">
+      <h2>Mensaje reconstruido · texto</h2>
+      <p id="info-texto" class="suave"></p>
+      <div id="texto-recibido" class="texto-recibido"></div>
+      <div class="fila" style="margin-top:10px">
+        <button id="btn-hablar" class="boton">Escuchar otra vez</button>
+        <button id="btn-callar" class="boton secundario">Parar</button>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <details>
+        <summary>Pegar a mano el texto de un QR (para pruebas)</summary>
+        <p class="suave">Si has leído el QR con otra app, pega aquí su contenido completo (<code>AUDIORR:…</code>).</p>
+        <textarea id="texto-manual" placeholder="AUDIORR:XXXXXX:1:12:C2-1200:AAAA…"></textarea>
+        <button id="btn-manual" class="boton secundario" style="margin-top:8px">Procesar texto</button>
+      </details>
+    </div>
+
+  </section>
+
+</main>
+
+<footer class="pie no-imprimir">
+  <a href="./">Qué es audiopapel</a>
+  <a href="privacidad.html">Privacidad y cookies</a>
+  <a href="creditos.html">Créditos y licencias</a>
+</footer>
+
+<!-- ================================================================== -->
+<!--  APLICACIÓN  ·  toda la lógica de la práctica, comentada en español  -->
+<!-- ================================================================== -->
+<script>
+'use strict';
+
+/* =====================================================================
+   0 · CONSTANTES DEL PROTOCOLO Y DEL CÓDEC
+   ===================================================================== */
+
+/**
+ * Palabra mágica que abre cada QR. Si no está, el QR no es nuestro.
+ * Hay dos versiones del protocolo y el receptor entiende las dos; cada una
+ * dice cómo vienen escritos los datos y cómo comprobar que están bien.
+ */
+const PROTOCOLO = 'AUDIORR2';                      // la que generamos
+const VERSIONES_PROTOCOLO = {
+  'AUDIORR2': { codificacion: 'base32', patron: /^[A-Z2-7]+$/ },
+  'AUDIORR':  { codificacion: 'base64', patron: /^[A-Za-z0-9+/]+=*$/ },
+};
+
+/** Duración máxima de una grabación, en segundos. */
+const MAX_SEGUNDOS = 180;
+
+/** Codec 2 trabaja SIEMPRE con audio mono a 8000 muestras por segundo. */
+const TASA_CODEC2 = 8000;
+
+/**
+ * Códecs que entiende el protocolo. La clave es lo que viaja en la cabecera
+ * del QR. En los de audio, "modo" es el identificador interno de libcodec2
+ * (codec2.h); el modo 700C es el 8, no el 6: el hueco es intencionado.
+ * Los de texto no llevan modo: el dato es la frase comprimida con deflate.
+ */
+const CODECS = {
+  'C2-1200': { tipo: 'audio', modo: 5, bps: 1200, etiqueta: 'Codec 2 · 1200 bit/s' },
+  'C2-700':  { tipo: 'audio', modo: 8, bps: 700,  etiqueta: 'Codec 2 · 700 bit/s'  },
+  'TXT-Z':   { tipo: 'texto', etiqueta: 'Texto comprimido (deflate) + voz sintética' },
+  'TXT':     { tipo: 'texto', etiqueta: 'Texto plano + voz sintética' },
+};
+
+/** Idioma del dictado y de la voz sintética. */
+const IDIOMA = 'es-ES';
+
+/* =====================================================================
+   1 · CODEC 2 (WebAssembly)
+   -----------------------------------------------------------------
+   El módulo wasm y su "pegamento" de Emscripten (createCodec2) están
+   incrustados al final del archivo. Aquí solo lo cargamos una vez y lo
+   envolvemos en una clase pequeña para codificar/decodificar tramas.
+   Una TRAMA son 320 muestras (40 ms de voz) que Codec 2 convierte en
+   6 bytes (1200 bit/s) o en 4 bytes (700 bit/s). 25 tramas por segundo.
+   ===================================================================== */
+
+let promesaModuloCodec2 = null;
+
+/** Carga (una sola vez) el módulo wasm a partir del Base64 incrustado. */
+function cargarModuloCodec2() {
+  if (!promesaModuloCodec2) {
+    promesaModuloCodec2 = createCodec2({ wasmBinary: base64ABytes(CODEC2_WASM_BASE64) });
+  }
+  return promesaModuloCodec2;
+}
+
+/** Envoltorio mínimo sobre las funciones C exportadas por libcodec2. */
+class Codec2 {
+  constructor(modulo, modo) {
+    this.m = modulo;
+    this.estado = modulo._codec2_create(modo);            // estado interno del códec
+    if (!this.estado) throw new Error('codec2_create falló para el modo ' + modo);
+    this.muestrasPorTrama = modulo._codec2_samples_per_frame(this.estado); // 320
+    this.bitsPorTrama = modulo._codec2_bits_per_frame(this.estado);        // 48 ó 28
+    this.bytesPorTrama = (this.bitsPorTrama + 7) >> 3;                      // 6 ó 4
+    // Reservamos memoria DENTRO del wasm para pasar datos de ida y vuelta.
+    this.pPcm = modulo._malloc(this.muestrasPorTrama * 2);
+    this.pBits = modulo._malloc(this.bytesPorTrama);
+    this.pSalida = modulo._malloc(this.muestrasPorTrama * 2);
+  }
+  /** Int16Array(320) → Uint8Array(bytesPorTrama) */
+  codificar(trama) {
+    this.m.HEAP16.set(trama, this.pPcm >> 1);
+    this.m._codec2_encode(this.estado, this.pBits, this.pPcm);
+    return this.m.HEAPU8.slice(this.pBits, this.pBits + this.bytesPorTrama);
+  }
+  /** Uint8Array(bytesPorTrama) → Int16Array(320) */
+  decodificar(bytes) {
+    this.m.HEAPU8.set(bytes, this.pBits);
+    this.m._codec2_decode(this.estado, this.pSalida, this.pBits);
+    const i = this.pSalida >> 1;
+    return this.m.HEAP16.slice(i, i + this.muestrasPorTrama);
+  }
+  destruir() {
+    this.m._codec2_destroy(this.estado);
+    this.m._free(this.pPcm); this.m._free(this.pBits); this.m._free(this.pSalida);
+  }
+}
+
+/** PCM 8 kHz (Int16Array) → bytes comprimidos con el códec indicado. */
+async function comprimirConCodec2(pcm, claveCodec) {
+  const codec = new Codec2(await cargarModuloCodec2(), CODECS[claveCodec].modo);
+  try {
+    const n = codec.muestrasPorTrama;
+    const tramas = Math.ceil(pcm.length / n);
+    const salida = new Uint8Array(tramas * codec.bytesPorTrama);
+    const trama = new Int16Array(n);
+    for (let t = 0; t < tramas; t++) {
+      trama.fill(0);                                           // la última trama se rellena con silencio
+      trama.set(pcm.subarray(t * n, Math.min((t + 1) * n, pcm.length)));
+      salida.set(codec.codificar(trama), t * codec.bytesPorTrama);
+    }
+    return salida;
+  } finally {
+    codec.destruir();
+  }
+}
+
+/** Bytes comprimidos → PCM 8 kHz (Int16Array). */
+async function descomprimirConCodec2(bytes, claveCodec) {
+  const codec = new Codec2(await cargarModuloCodec2(), CODECS[claveCodec].modo);
+  try {
+    const b = codec.bytesPorTrama;
+    const tramas = Math.floor(bytes.length / b);
+    const pcm = new Int16Array(tramas * codec.muestrasPorTrama);
+    for (let t = 0; t < tramas; t++) {
+      pcm.set(codec.decodificar(bytes.subarray(t * b, (t + 1) * b)), t * codec.muestrasPorTrama);
+    }
+    return pcm;
+  } finally {
+    codec.destruir();
+  }
+}
+
+/* =====================================================================
+   2 · UTILIDADES: Base32/Base64, capacidad del QR, WAV, audio
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   BASE32: por qué no Base64
+   ---------------------------------------------------------------------
+   Un QR puede guardar texto de varias formas ("modos"). El modo BYTE admite
+   cualquier carácter y gasta 8 bits por cada uno. El modo ALFANUMÉRICO solo
+   admite 45 caracteres (0-9, A-Z, espacio y $ % * + - . / :), pero mete DOS
+   caracteres en 11 bits: 5,5 bits por carácter.
+   Base64 necesita minúsculas → obliga al modo Byte. Base32 usa solo A-Z y
+   2-7 → cabe en el alfanumérico. Base32 infla más los datos (8 caracteres
+   por cada 5 bytes, frente a 4 por cada 3), pero sale a cuenta:
+       Base64 en modo Byte        : 1 byte → 1,33 car. × 8   = 10,7 bits
+       Base32 en modo alfanumérico: 1 byte → 1,60 car. × 5,5 =  8,8 bits
+   Resultado: un 22 % más de voz en cada QR, con el mismo tamaño de código.
+   --------------------------------------------------------------------- */
+const ALFABETO_BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+/** Uint8Array → texto Base32 (sin relleno '=': no existe en el modo alfanumérico). */
+function bytesABase32(bytes) {
+  let salida = '', acumulado = 0, bits = 0;
+  for (const byte of bytes) {
+    acumulado = (acumulado << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      salida += ALFABETO_BASE32[(acumulado >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+    acumulado &= (1 << bits) - 1;                 // solo guardamos los bits sin usar
+  }
+  if (bits > 0) salida += ALFABETO_BASE32[(acumulado << (5 - bits)) & 31];
+  return salida;
+}
+
+/** Texto Base32 → Uint8Array (los bits sobrantes del final son relleno). */
+function base32ABytes(texto) {
+  const bytes = new Uint8Array(Math.floor(texto.length * 5 / 8));
+  let acumulado = 0, bits = 0, i = 0;
+  for (const letra of texto) {
+    const valor = ALFABETO_BASE32.indexOf(letra);
+    if (valor < 0) throw new Error('Carácter no válido en Base32: ' + letra);
+    acumulado = (acumulado << 5) | valor;
+    bits += 5;
+    if (bits >= 8) {
+      bytes[i++] = (acumulado >>> (bits - 8)) & 255;
+      bits -= 8;
+      acumulado &= (1 << bits) - 1;
+    }
+  }
+  return bytes;
+}
+
+/* ---------------------------------------------------------------------
+   ¿CUÁNTO CABE EN UN QR?  (cuentas del estándar ISO/IEC 18004)
+   ---------------------------------------------------------------------
+   Cada versión de QR, con corrección de errores M, tiene un número fijo de
+   "palabras" de datos de 8 bits. Cada tramo de texto gasta:
+       4 bits de modo + un contador de longitud + los caracteres.
+   Con eso calculamos exactamente cuántos caracteres de datos caben, en vez
+   de ir probando: así cada QR se llena hasta el último carácter.
+   --------------------------------------------------------------------- */
+const PALABRAS_DATOS_M = [16, 28, 44, 64, 86, 108, 124, 154, 182, 216, 254, 290, 334, 365,
+  415, 453, 507, 563, 627, 669, 714, 782, 860, 914, 1000, 1062, 1128, 1193, 1267, 1373, 1455,
+  1541, 1631, 1725, 1812, 1914, 1992, 2102, 2216, 2334];
+
+/** Bits de un tramo en modo Byte (la URL). */
+function bitsModoByte(longitud, version) {
+  return 4 + (version < 10 ? 8 : 16) + 8 * longitud;
+}
+
+/** Bits de un tramo en modo alfanumérico (cabecera + datos). */
+function bitsModoAlfanumerico(longitud, version) {
+  const contador = version < 10 ? 9 : version < 27 ? 11 : 13;
+  return 4 + contador + 11 * Math.floor(longitud / 2) + 6 * (longitud % 2);
+}
+
+/** Máximo de caracteres alfanuméricos que caben tras la URL en esa versión. */
+function capacidadAlfanumerica(version, prefijo) {
+  const disponibles = PALABRAS_DATOS_M[version - 1] * 8
+    - (prefijo ? bitsModoByte(new TextEncoder().encode(prefijo).length, version) : 0);
+  let n = 0;
+  while (bitsModoAlfanumerico(n + 1, version) <= disponibles) n++;
+  return n;
+}
+
+/**
+ * Texto Base64 → Uint8Array. Solo hace falta para LEER los QR de la
+ * versión 1 del protocolo; los nuevos se escriben en Base32.
+ */
+function base64ABytes(b64) {
+  const binario = atob(b64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Cualquier audio (Blob grabado o archivo) → PCM mono 8 kHz normalizado.
+ * 1) decodeAudioData lo convierte a muestras en coma flotante (44,1/48 kHz).
+ * 2) Un OfflineAudioContext a 8000 Hz lo remuestrea y mezcla a mono.
+ * 3) Normalizamos el volumen (pico al 90 %) y pasamos a enteros de 16 bits,
+ *    que es lo que espera Codec 2.
+ */
+async function audioAPcm8k(blob) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  let buffer;
+  try {
+    buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+  } finally {
+    ctx.close();
+  }
+  const nMuestras = Math.ceil(buffer.duration * TASA_CODEC2);
+  const offline = new OfflineAudioContext(1, nMuestras, TASA_CODEC2);
+  const fuente = offline.createBufferSource();
+  fuente.buffer = buffer;
+  fuente.connect(offline.destination);
+  fuente.start();
+  const remuestreado = (await offline.startRendering()).getChannelData(0);
+
+  let pico = 0;
+  for (let i = 0; i < remuestreado.length; i++) pico = Math.max(pico, Math.abs(remuestreado[i]));
+  const ganancia = pico > 0 ? 0.9 / pico : 1;
+  const pcm = new Int16Array(remuestreado.length);
+  for (let i = 0; i < remuestreado.length; i++) {
+    pcm[i] = Math.max(-32768, Math.min(32767, Math.round(remuestreado[i] * ganancia * 32767)));
+  }
+  return pcm;
+}
+
+/** PCM Int16 mono → Blob WAV (cabecera RIFF de 44 bytes + muestras). */
+function pcmAWav(pcm, tasa) {
+  const cabecera = new ArrayBuffer(44);
+  const v = new DataView(cabecera);
+  const escribe = (pos, texto) => { for (let i = 0; i < texto.length; i++) v.setUint8(pos + i, texto.charCodeAt(i)); };
+  escribe(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); escribe(8, 'WAVE');
+  escribe(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, tasa, true); v.setUint32(28, tasa * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  escribe(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+  return new Blob([cabecera, pcm], { type: 'audio/wav' });
+}
+
+/* ---------------------------------------------------------------------
+   TEXTO: comprimir y descomprimir con deflate
+   ---------------------------------------------------------------------
+   CompressionStream es parte del navegador: comprime igual que un .zip.
+   Con texto en español deja el mensaje en algo menos de la mitad. Si el
+   navegador es antiguo y no la tiene, mandamos el texto tal cual (clave
+   "TXT" en lugar de "TXT-Z") y todo lo demás funciona igual.
+   --------------------------------------------------------------------- */
+
+/** texto → { clave, bytes } listo para trocear en QRs. */
+async function comprimirTexto(texto) {
+  const crudo = new TextEncoder().encode(texto);
+  if (typeof CompressionStream === 'undefined') return { clave: 'TXT', bytes: crudo };
+  const flujo = new Blob([crudo]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return { clave: 'TXT-Z', bytes: new Uint8Array(await new Response(flujo).arrayBuffer()) };
+}
+
+/** bytes → texto, deshaciendo el deflate si hacía falta. */
+async function descomprimirTexto(bytes, clave) {
+  if (clave === 'TXT') return new TextDecoder().decode(bytes);
+  const flujo = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new TextDecoder().decode(await new Response(flujo).arrayBuffer());
+}
+
+/* ---------------------------------------------------------------------
+   VOZ SINTÉTICA (speechSynthesis)
+   Viene con el sistema operativo, funciona sin Internet y no ocupa ni un
+   byte del mensaje: por eso el modo texto comprime tantísimo.
+   --------------------------------------------------------------------- */
+
+/**
+ * Devuelve la mejor voz en español disponible (o null). Preferimos las
+ * voces LOCALES del sistema: funcionan sin Internet y no las corta el
+ * navegador a los pocos segundos, como ocurre con las voces de red.
+ */
+function vozEnEspanol() {
+  const voces = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  return voces.find(v => v.localService) || voces[0] || null;
+}
+
+/**
+ * Lee un texto en voz alta. Si el navegador lo bloquea (pasa cuando la
+ * página se ha abierto desde un enlace y el usuario aún no ha tocado nada),
+ * llama a siBloqueado. Chrome avisa con un error 'not-allowed'; Safari se
+ * calla sin avisar, así que además comprobamos si de verdad ha empezado.
+ */
+function hablar(texto, siBloqueado) {
+  if (!('speechSynthesis' in window)) return false;
+  speechSynthesis.cancel();
+  const frase = new SpeechSynthesisUtterance(texto);
+  frase.lang = IDIOMA;
+  const voz = vozEnEspanol();
+  if (voz) frase.voice = voz;
+  let empezo = false;
+  let avisado = false;
+  const bloqueado = () => { if (!avisado && siBloqueado) { avisado = true; siBloqueado(); } };
+  frase.onstart = () => { empezo = true; };
+  frase.onerror = (e) => { if (e.error === 'not-allowed') bloqueado(); };
+  speechSynthesis.speak(frase);
+  setTimeout(() => { if (!empezo && !speechSynthesis.speaking) bloqueado(); }, 1200);
+  return true;
+}
+
+/**
+ * Los navegadores no dejan sonar nada hasta que el usuario toca la página
+ * (política de "autoplay"). Si hemos llegado desde un QR con enlace, ese
+ * toque no ha existido: enseñamos un botón grande y el sonido sale al pulsarlo.
+ */
+function pedirToque(accion) {
+  $('bloque-toque').style.display = '';
+  $('btn-toque').onclick = () => {
+    $('bloque-toque').style.display = 'none';
+    accion();
+  };
+  $('bloque-toque').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** ¿Ha tocado ya el usuario esta página? (undefined si el navegador no lo sabe) */
+function haHabidoToque() {
+  return navigator.userActivation ? navigator.userActivation.hasBeenActive : undefined;
+}
+
+/** Segundos → "m:ss" */
+function formatoTiempo(seg) {
+  seg = Math.round(seg);
+  return Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0');
+}
+
+/** Pitido corto (y vibración en móvil) al recibir un bloque nuevo. */
+function pitido(frecuencia = 880, duracion = 0.08) {
+  try {
+    const ctx = pitido.ctx || (pitido.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const osc = ctx.createOscillator();
+    const gan = ctx.createGain();
+    osc.frequency.value = frecuencia;
+    gan.gain.value = 0.15;
+    osc.connect(gan).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duracion);
+  } catch (_) { /* sin audio, no pasa nada */ }
+  if (navigator.vibrate) navigator.vibrate(60);
+}
+
+const $ = (id) => document.getElementById(id);
+
+/** decodeURIComponent que no revienta: un '%' suelto lanzaría URIError. */
+function decodificarSeguro(texto) {
+  try { return decodeURIComponent(texto); } catch (_) { return texto; }
+}
+
+/**
+ * Pone un audio en un reproductor liberando el anterior. Cada
+ * URL.createObjectURL retiene el archivo en memoria hasta que se revoca;
+ * sin esto, cada grabación nueva dejaba la anterior ocupando memoria.
+ */
+function ponerAudio(elemento, blob) {
+  if (elemento.dataset.url) URL.revokeObjectURL(elemento.dataset.url);
+  const url = URL.createObjectURL(blob);
+  elemento.dataset.url = url;
+  elemento.src = url;
+}
+
+function mostrarEstado(el, mensaje, tipo = '') {
+  el.textContent = mensaje;
+  el.className = 'estado ' + tipo;
+}
+
+/* =====================================================================
+   3 · PESTAÑAS
+   ===================================================================== */
+function cambiarPestana(nombre) {
+  document.querySelectorAll('nav.pestanas button').forEach(b => b.classList.toggle('activa', b.dataset.tab === nombre));
+  document.querySelectorAll('section.pestana').forEach(s => s.classList.toggle('activa', s.id === 'tab-' + nombre));
+  window.scrollTo({ top: 0 });
+}
+document.querySelectorAll('nav.pestanas button').forEach(b => b.addEventListener('click', () => cambiarPestana(b.dataset.tab)));
+
+/* =====================================================================
+   4 · EMISOR: grabar → comprimir → trocear → QRs
+   ===================================================================== */
+
+let grabadora = null;          // instancia de MediaRecorder
+let trozosGrabados = [];       // fragmentos que entrega MediaRecorder
+let inicioGrabacion = 0;
+let temporizador = null;
+let bloquesGenerados = [];     // [{ numero, texto }] los QRs de la última generación
+
+/* ---------- Modo TEXTO: dictado con el reconocedor del navegador ----------
+   SpeechRecognition es la API de dictado de Chrome/Edge/Safari (Firefox no la
+   tiene). En la mayoría de versiones el audio viaja a los servidores del
+   navegador, así que esta parte -y solo esta- necesita Internet; el resto
+   de la aplicación sigue siendo local. Por eso el texto acaba SIEMPRE en
+   un cuadro editable: se puede corregir, o escribir a mano sin micrófono.
+
+   DOS TRAMPAS QUE HAY QUE SORTEAR (y que explican el código de abajo):
+
+   1) ANDROID DUPLICA PALABRAS. Chrome en Android reenvía resultados que ya
+      había dado por definitivos. Si vamos ACUMULANDO (texto += trozo) cada
+      repetición se pega otra vez y salen frases dobles. La solución es no
+      acumular nunca: en cada evento RECALCULAMOS el texto entero de la
+      sesión recorriendo todos los results. Así, llegue el mismo resultado
+      una vez o cinco, el texto queda igual (la operación es idempotente).
+
+   2) SAFARI/iOS NO ARRANCA con continuous = true: acepta la orden, no da
+      error y no reconoce nada. Allí hay que dictar en tandas cortas
+      (continuous = false) y volver a arrancar cada vez que termina.
+   -------------------------------------------------------------------- */
+const Reconocedor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+/** Safari (incluido iPhone/iPad, que también se hace pasar por Mac). */
+const ES_APPLE = /iP(hone|ad|od)/.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && navigator.platform === 'MacIntel')
+  || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Android|Edg/.test(navigator.userAgent));
+
+let dictado = null;
+let textoPrevio = '';           // lo dictado en tandas YA cerradas
+let textoSesion = '';           // lo definitivo de la tanda en curso (se recalcula entero)
+let instanteArranque = 0;
+
+function modoTexto() {
+  return CODECS[$('sel-codec').value].tipo === 'texto';
+}
+
+/** Muestra u oculta las piezas propias de cada modo. */
+function actualizarModo() {
+  const texto = modoTexto();
+  $('panel-texto').style.display = texto ? '' : 'none';
+  $('archivo-audio').parentElement.style.display = texto ? 'none' : '';
+  $('previsualizacion').style.display = 'none';
+  $('btn-grabar').textContent = texto ? 'Dictar' : 'Grabar';
+  $('btn-grabar').disabled = texto && !Reconocedor;
+  if (texto && !Reconocedor) {
+    mostrarEstado($('estado-emisor'), 'Este navegador no tiene dictado (prueba Chrome, Edge o Safari). Puedes escribir el mensaje a mano.', 'aviso');
+  }
+  actualizarCuentaTexto();
+}
+
+function actualizarCuentaTexto() {
+  const t = $('texto-mensaje').value.trim();
+  const palabras = t ? t.split(/\s+/).length : 0;
+  $('cuenta-texto').textContent = `${palabras} palabras · ${t.length} caracteres`;
+}
+
+/**
+ * ¿"b" es la MISMA frase que "a", solo que mejor reconocida?
+ *
+ * Chrome en Android, cuando duda (voces agudas, infantiles, ruido), no manda
+ * una frase por resultado: manda la misma frase muchas veces, cada vez más
+ * completa, y encima marcándolas todas como definitivas:
+ *     "vengo"  "vengo sueño"  "vengo sueño y mi"  "tengo sueño y mi padre"
+ * Fíjate en la última: ha corregido "vengo" por "tengo". No son cuatro
+ * frases, es una sola vista cuatro veces. Si las pegamos, sale duplicada.
+ *
+ * Damos por hecho que es la misma frase cuando una empieza igual que la otra,
+ * o cuando ambas TERMINAN igual salvo como mucho una palabra (que es el caso
+ * de "vengo"/"tengo").
+ */
+function esRefinamiento(a, b) {
+  const A = a.toLowerCase(), B = b.toLowerCase();
+  if (A === B || B.startsWith(A) || A.startsWith(B)) return true;
+  const pa = A.split(/\s+/), pb = B.split(/\s+/);
+  let iguales = 0;
+  while (iguales < pa.length && iguales < pb.length
+         && pa[pa.length - 1 - iguales] === pb[pb.length - 1 - iguales]) iguales++;
+  return iguales >= 2 && iguales >= Math.min(pa.length, pb.length) - 1;
+}
+
+/**
+ * Convierte la lista de resultados del reconocedor en UN texto.
+ * Cada trozo o bien afina el anterior (lo sustituye) o bien es nuevo (se
+ * añade). Así funciona igual en un navegador que manda frase por frase y en
+ * uno que manda la misma frase refinándola.
+ */
+function textoDeLosResultados(trozos) {
+  let salida = '';
+  for (const bruto of trozos) {
+    const t = (bruto || '').trim();
+    if (!t) continue;                                   // Android manda vacíos
+    if (!salida) salida = t;
+    else if (esRefinamiento(salida, t)) salida = t;     // misma frase, mejor
+    else salida = unirSinRepetir(salida, t);            // frase nueva
+  }
+  return salida;
+}
+
+/** Junta dos trozos evitando repetir lo que ya estaba al final del primero. */
+function unirSinRepetir(anterior, nuevo) {
+  anterior = anterior.trim();
+  nuevo = nuevo.trim();
+  if (!anterior) return nuevo;
+  if (!nuevo) return anterior;
+  // Si el reconocedor vuelve a mandar la cola de la tanda anterior, la quitamos.
+  const maximo = Math.min(anterior.length, nuevo.length, 60);
+  for (let n = maximo; n >= 8; n--) {
+    if (anterior.slice(-n).toLowerCase() === nuevo.slice(0, n).toLowerCase()) {
+      return anterior + nuevo.slice(n);
+    }
+  }
+  return anterior + ' ' + nuevo;
+}
+
+/** Pinta en el cuadro lo dictado hasta ahora más lo provisional. */
+function pintarDictado(provisional) {
+  const firme = unirSinRepetir(textoPrevio, textoSesion);
+  $('texto-mensaje').value = provisional ? unirSinRepetir(firme, provisional) : firme;
+  actualizarCuentaTexto();
+}
+
+/* ---------- Registro del dictado (para depurar) ----------
+   Cada navegador entrega los resultados a su manera y no hay forma de saber
+   cuál sin verlo. Con la casilla "ver detalle técnico" marcada, aquí queda
+   apuntado cada evento tal como llega: cuántos resultados trae, cuáles son
+   definitivos y qué texto exacto. Sirve para diagnosticar duplicados.
+   ------------------------------------------------------------------ */
+let contadorEventos = 0;
+
+function registrarEventoDictado(e, definitivo, provisional) {
+  const caja = $('registro-dictado');
+  if (!caja || !$('detalle-dictado').open) return;
+  const trozos = [];
+  for (let i = 0; i < e.results.length; i++) {
+    trozos.push((e.results[i].isFinal ? 'F' : 'i') + i + ':"' + e.results[i][0].transcript.trim() + '"');
+  }
+  caja.textContent = `#${++contadorEventos} idx=${e.resultIndex} n=${e.results.length} ${trozos.join(' ')}\n  → "${definitivo}" + prov "${provisional}"\n` + caja.textContent;
+  if (caja.textContent.length > 4000) caja.textContent = caja.textContent.slice(0, 4000);
+}
+
+function empezarDictado() {
+  contadorEventos = 0;
+  const caja = $('registro-dictado');
+  if (caja) caja.textContent = '';
+  dictado = new Reconocedor();
+  dictado.lang = IDIOMA;
+  // En Safari/iOS continuous no funciona: dictamos en tandas y reanudamos solos.
+  dictado.continuous = !ES_APPLE;
+  dictado.interimResults = true;    // ir enseñando lo que entiende
+  dictado.maxAlternatives = 1;
+
+  textoPrevio = $('texto-mensaje').value;
+  textoSesion = '';
+
+  // CLAVE CONTRA LA DUPLICACIÓN: no acumulamos, recalculamos la tanda entera.
+  dictado.onresult = (e) => {
+    // Recorremos TODOS los resultados y los vamos uniendo con unirSinRepetir:
+    // si el reconocedor entrega dos veces la misma frase (Android lo hace),
+    // la segunda no se pega. Antes concatenábamos a pelo y salía repetida.
+    const finales = [];
+    const interinos = [];
+    for (let i = 0; i < e.results.length; i++) {
+      (e.results[i].isFinal ? finales : interinos).push(e.results[i][0].transcript);
+    }
+    const definitivo = textoDeLosResultados(finales);
+    const provisional = textoDeLosResultados(interinos);
+    textoSesion = definitivo;
+    pintarDictado(provisional);
+    registrarEventoDictado(e, definitivo, provisional);
+  };
+
+  let arrancado = false;
+  dictado.onstart = () => {
+    arrancado = true;
+    mostrarEstado($('estado-emisor'), 'Dictando… habla con claridad; el texto aparece abajo y puedes corregirlo después.');
+  };
+
+  // El reconocedor se para solo tras unos segundos de silencio (y en Safari,
+  // tras cada frase): cerramos la tanda y arrancamos otra.
+  dictado.onend = () => {
+    if (!dictado) return;                       // lo ha parado el usuario
+    textoPrevio = unirSinRepetir(textoPrevio, textoSesion);
+    textoSesion = '';
+    // Si termina nada más empezar, esperamos un poco para no entrar en bucle.
+    const espera = Date.now() - instanteArranque < 400 ? 600 : 0;
+    setTimeout(() => {
+      if (!dictado) return;
+      try { instanteArranque = Date.now(); dictado.start(); }
+      catch (_) { /* ya estaba arrancando */ }
+    }, espera);
+  };
+
+  dictado.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;   // se reanuda solo
+    const explicacion = {
+      'not-allowed': 'no has dado permiso al micrófono (revisa el candado de la barra de direcciones).',
+      'service-not-allowed': 'el sistema no permite el dictado. En iPhone: Ajustes → General → Teclado → Activar Dictado.',
+      'network': 'el dictado del navegador necesita Internet.',
+      'audio-capture': 'no se encuentra el micrófono.',
+    }[e.error] || e.error;
+    mostrarEstado($('estado-emisor'), 'Dictado interrumpido: ' + explicacion, 'error');
+    pararDictado();
+  };
+
+  try {
+    instanteArranque = Date.now();
+    dictado.start();
+  } catch (err) {
+    mostrarEstado($('estado-emisor'), 'No se pudo iniciar el dictado: ' + err.message, 'error');
+    pararDictado();
+    return;
+  }
+
+  // Si en 4 segundos no ha arrancado de verdad, lo decimos en vez de
+  // dejar al usuario hablando a un botón que no escucha.
+  setTimeout(() => {
+    if (dictado && !arrancado) {
+      mostrarEstado($('estado-emisor'), 'Este navegador no ha llegado a iniciar el dictado. Escribe el mensaje a mano en el cuadro de abajo (funciona igual) o prueba con Chrome.', 'aviso');
+    }
+  }, 4000);
+
+  $('btn-grabar').textContent = 'Detener dictado';
+  $('btn-grabar').classList.add('grabando');
+  mostrarEstado($('estado-emisor'), 'Pidiendo permiso para el micrófono…');
+}
+
+function pararDictado() {
+  const d = dictado;
+  dictado = null;                   // primero, para que onend no lo reanude
+  if (d) {
+    d.onend = null;
+    try { d.stop(); } catch (_) {}
+  }
+  // Consolidamos lo que quedara de la última tanda.
+  textoPrevio = unirSinRepetir(textoPrevio, textoSesion);
+  textoSesion = '';
+  if (textoPrevio) { $('texto-mensaje').value = textoPrevio; actualizarCuentaTexto(); }
+  $('btn-grabar').textContent = 'Dictar';
+  $('btn-grabar').classList.remove('grabando');
+}
+
+$('sel-codec').addEventListener('change', () => { pararDictado(); actualizarModo(); });
+$('texto-mensaje').addEventListener('input', actualizarCuentaTexto);
+$('btn-probar-voz').addEventListener('click', () => {
+  const t = $('texto-mensaje').value.trim();
+  if (!t) return;
+  if (!hablar(t)) mostrarEstado($('estado-emisor'), 'Este navegador no tiene voz sintética.', 'error');
+});
+
+/** Elige el formato de contenedor que soporte el navegador. */
+function mimeGrabacion() {
+  const candidatos = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/mp4'];
+  return candidatos.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+}
+
+async function empezarGrabacion() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+  });
+  trozosGrabados = [];
+  // Ojo: aquí Opus es solo un formato INTERMEDIO. La compresión de verdad la
+  // hace Codec 2 después, así que grabamos con calidad suficiente (48 kbps).
+  const opciones = { audioBitsPerSecond: 48000 };
+  if (mimeGrabacion()) opciones.mimeType = mimeGrabacion();
+  grabadora = new MediaRecorder(stream, opciones);
+  grabadora.ondataavailable = (e) => { if (e.data.size > 0) trozosGrabados.push(e.data); };
+  grabadora.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());              // apagar el micrófono
+    const blob = new Blob(trozosGrabados, { type: grabadora.mimeType });
+    await procesarAudio(blob);
+  };
+  grabadora.start();
+  inicioGrabacion = Date.now();
+  $('btn-grabar').textContent = 'Detener';
+  $('btn-grabar').classList.add('grabando');
+  temporizador = setInterval(() => {
+    const seg = (Date.now() - inicioGrabacion) / 1000;
+    $('contador').textContent = formatoTiempo(seg);
+    if (seg >= MAX_SEGUNDOS) pararGrabacion();
+  }, 250);
+  mostrarEstado($('estado-emisor'), 'Grabando… habla con claridad y cerca del micrófono.');
+}
+
+function pararGrabacion() {
+  clearInterval(temporizador);
+  if (grabadora && grabadora.state !== 'inactive') grabadora.stop();
+  $('btn-grabar').textContent = 'Grabar';
+  $('btn-grabar').classList.remove('grabando');
+}
+
+$('btn-grabar').addEventListener('click', async () => {
+  try {
+    if (modoTexto()) {
+      if (dictado) pararDictado();
+      else empezarDictado();
+    } else if (grabadora && grabadora.state === 'recording') {
+      pararGrabacion();
+    } else {
+      await empezarGrabacion();
+    }
+  } catch (err) {
+    mostrarEstado($('estado-emisor'), 'No se pudo acceder al micrófono: ' + err.message, 'error');
+  }
+});
+
+$('archivo-audio').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (archivo) await procesarAudio(archivo);
+  e.target.value = '';
+});
+
+$('btn-generar-texto').addEventListener('click', procesarTexto);
+
+/**
+ * Emisor en MODO TEXTO: el mensaje escrito se comprime con deflate y se
+ * trocea igual que el audio. La diferencia es cuánto ocupa: una frase de
+ * 400 palabras pesa lo mismo que una décima de segundo de audio.
+ */
+async function procesarTexto() {
+  const estado = $('estado-emisor');
+  const versionQR = parseInt($('sel-tamano').value, 10);
+  try {
+    pararDictado();
+    const texto = $('texto-mensaje').value.trim().replace(/\s+/g, ' ');
+    if (!texto) throw new Error('No hay texto que guardar: dicta o escribe el mensaje.');
+
+    const { clave, bytes } = await comprimirTexto(texto);
+    const id = generarId();
+    bloquesGenerados = trocearEnBloques(bytes, id, clave, versionQR);
+    pintarQRs(bloquesGenerados);
+
+    const palabras = texto.split(' ').length;
+    const crudo = new TextEncoder().encode(texto).length;
+    $('estadisticas').innerHTML = [
+      ['Palabras', palabras],
+      ['Texto', crudo + ' B'],
+      ['Comprimido', bytes.length + ' B'],
+      ['Base32', bytesABase32(bytes).length + ' car.'],
+      ['Compresión', (crudo / bytes.length).toFixed(1) + ' : 1'],
+      ['Códigos QR', bloquesGenerados.length],
+    ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+    $('bloque-resultado').style.display = '';
+    mostrarEstado(estado, `Listo: ${bloquesGenerados.length} código(s) QR (ID ${id}) con ${palabras} palabras.`, 'ok');
+    $('bloque-resultado').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    console.error(err);
+    mostrarEstado(estado, 'Error: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Corazón del emisor en MODO AUDIO. Recibe un Blob (grabado o cargado) y
+ * produce la lista de códigos QR.
+ */
+async function procesarAudio(blob) {
+  const estado = $('estado-emisor');
+  const claveCodec = $('sel-codec').value;
+  const versionQR = parseInt($('sel-tamano').value, 10);
+  try {
+    mostrarEstado(estado, 'Decodificando y remuestreando a 8 kHz…');
+    let pcm = await audioAPcm8k(blob);
+    if (pcm.length > MAX_SEGUNDOS * TASA_CODEC2) pcm = pcm.subarray(0, MAX_SEGUNDOS * TASA_CODEC2); // recortar a 3 min
+    const duracion = pcm.length / TASA_CODEC2;
+    if (duracion < 0.5) throw new Error('La grabación es demasiado corta.');
+
+    mostrarEstado(estado, 'Comprimiendo con ' + CODECS[claveCodec].etiqueta + '…');
+    const bytes = await comprimirConCodec2(pcm, claveCodec);
+
+    // Previsualización: descomprimimos ya mismo para oír cómo llegará.
+    const pcmVuelta = await descomprimirConCodec2(bytes, claveCodec);
+    ponerAudio($('audio-previo'), pcmAWav(pcmVuelta, TASA_CODEC2));
+    $('previsualizacion').style.display = '';
+
+    // Bytes → Base32 → bloques → QRs
+    const id = generarId();
+    bloquesGenerados = trocearEnBloques(bytes, id, claveCodec, versionQR);
+    pintarQRs(bloquesGenerados);
+
+    // Estadísticas para la clase: cuánto hemos comprimido.
+    const bytesPcm = pcm.length * 2;
+    $('estadisticas').innerHTML = [
+      ['Duración', formatoTiempo(duracion)],
+      ['PCM 8 kHz', (bytesPcm / 1024).toFixed(1) + ' KB'],
+      ['Codec 2', (bytes.length / 1024).toFixed(1) + ' KB'],
+      ['Base32', (bytesABase32(bytes).length / 1024).toFixed(1) + ' KB'],
+      ['Compresión', (bytesPcm / bytes.length).toFixed(0) + ' : 1'],
+      ['Códigos QR', bloquesGenerados.length],
+    ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+    $('bloque-resultado').style.display = '';
+    mostrarEstado(estado, `Listo: ${bloquesGenerados.length} códigos QR (ID ${id}). Imprímelos o escanéalos de la pantalla.`, 'ok');
+    $('bloque-resultado').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    console.error(err);
+    mostrarEstado(estado, 'Error: ' + err.message, 'error');
+  }
+}
+
+/** ID de 6 caracteres [A-Z0-9] usando el generador criptográfico del navegador. */
+function generarId() {
+  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para no confundir
+  const aleatorios = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(aleatorios, b => alfabeto[b % alfabeto.length]).join('');
+}
+
+/** Dirección pública de la herramienta, para los QR generados fuera de una web. */
+const DIRECCION_OFICIAL = 'https://audiopapel.com/audio_en_papel.html';
+
+/**
+ * Dirección que va dentro de cada QR. TODOS los QR son enlaces: así se
+ * pueden escanear con la cámara normal del móvil, sin abrir nada antes.
+ *   · Si esta página está publicada en una web, el enlace apunta a ella
+ *     misma (sirve igual en audiopapel.com que en un servidor de pruebas).
+ *   · Si se ha abierto desde el ordenador (file://, localhost o una IP de
+ *     la red de casa), un enlace a esa dirección no le serviría de nada a
+ *     un móvil: usamos la dirección oficial.
+ */
+function direccionDeEstaPagina() {
+  const esWeb = location.protocol === 'http:' || location.protocol === 'https:';
+  const esLocal = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/.test(location.hostname);
+  return esWeb && !esLocal ? location.origin + location.pathname : DIRECCION_OFICIAL;
+}
+
+/**
+ * Pasa los bytes a Base32, los parte en bloques y les pone la cabecera.
+ * "versionQR" es el tamaño de QR elegido (23, 29, 35 ó 40): calculamos
+ * cuántos caracteres de datos caben en esa versión después de la URL y la
+ * cabecera (con 3 dígitos para bloque y total, el peor caso) y llenamos
+ * cada QR hasta ahí. Cada bloque guarda aparte:
+ *   · prefijo: la URL, que irá en modo Byte (lleva minúsculas);
+ *   · carga:   cabecera + datos, que irá en modo alfanumérico.
+ */
+function trocearEnBloques(bytes, id, claveCodec, versionQR) {
+  // Cada QR es un ENLACE a la herramienta y los datos viajan detrás del '#'.
+  // Lo que va tras el '#' (el "fragmento") no se envía nunca al servidor: se
+  // queda en el navegador, así que el mensaje sigue siendo privado y no hay
+  // límite de longitud por parte del servidor.
+  const prefijo = direccionDeEstaPagina() + '#';
+  const datosBase32 = bytesABase32(bytes);
+  const cabeceraPeorCaso = `${PROTOCOLO}:${id}:999:999:${claveCodec}:`.length;
+  const datosPorBloque = Math.max(50, capacidadAlfanumerica(versionQR, prefijo) - cabeceraPeorCaso);
+  const total = Math.ceil(datosBase32.length / datosPorBloque);
+  const bloques = [];
+  for (let n = 1; n <= total; n++) {
+    const datos = datosBase32.slice((n - 1) * datosPorBloque, n * datosPorBloque);
+    const carga = `${PROTOCOLO}:${id}:${n}:${total}:${claveCodec}:${datos}`;
+    bloques.push({ id, numero: n, total, prefijo, carga, texto: prefijo + carga });
+  }
+  return bloques;
+}
+
+/** Dibuja la lista de tarjetas con su QR (SVG, se imprime nítido). */
+function pintarQRs(bloques) {
+  const contenedor = $('tarjetas-qr');
+  contenedor.innerHTML = '';
+  for (const b of bloques) {
+    // Nivel de corrección M (15 %): buen equilibrio entre capacidad y robustez.
+    const qr = qrcode(0, 'M');                         // 0 = la versión más pequeña en la que quepa
+    if (b.prefijo) qr.addData(b.prefijo, 'Byte');      // la URL lleva minúsculas: modo Byte
+    qr.addData(b.carga, 'Alphanumeric');               // cabecera + Base32: modo alfanumérico
+    qr.make();
+    // El ID lo guardamos aparte al trocear: sacarlo partiendo el texto por
+    // ':' falla en cuanto el QR empieza por "https:".
+    const tarjeta = document.createElement('div');
+    tarjeta.className = 'tarjeta-qr';
+    const titulo = document.createElement('div');
+    titulo.className = 'titulo';
+    titulo.textContent = `Código ${b.numero} de ${b.total}`;
+    const pie = document.createElement('div');
+    pie.className = 'pie';
+    pie.textContent = `ID ${b.id} · ${b.texto.length} caracteres · QR versión ${(qr.getModuleCount() - 21) / 4 + 1}`;
+    tarjeta.appendChild(titulo);
+    tarjeta.insertAdjacentHTML('beforeend', qr.createSvgTag({ cellSize: 2, margin: 4, scalable: true }));
+    tarjeta.appendChild(pie);
+    contenedor.appendChild(tarjeta);
+  }
+}
+
+$('btn-imprimir').addEventListener('click', () => window.print());
+
+/** Manda los bloques a la pestaña 2, DESORDENADOS, como si los escaneáramos. */
+$('btn-simular').addEventListener('click', async () => {
+  const desordenados = [...bloquesGenerados].sort(() => Math.random() - 0.5);
+  cambiarPestana('receptor');
+  for (const b of desordenados) {
+    procesarTextoQR(b.texto);
+    await new Promise(r => setTimeout(r, 180));
+  }
+});
+
+/* =====================================================================
+   5 · RECEPTOR: escanear → ensamblar → descomprimir → reproducir
+   ===================================================================== */
+
+/** Estado de la recepción en curso. */
+const recepcion = { id: null, total: 0, codec: null, codificacion: null, bloques: new Map(), completado: false };
+
+/**
+ * Analiza el texto de un QR. Devuelve { id, numero, total, codec, datos }
+ * o lanza un Error explicando por qué el QR no es válido.
+ */
+function analizarQR(texto) {
+  texto = texto.trim();
+  // Un QR con enlace trae "https://…#AUDIORR:…": nos quedamos con lo de detrás
+  // del '#'. Así el mismo lector sirve para los dos formatos de QR.
+  const almohadilla = texto.indexOf('#');
+  if (almohadilla !== -1 && texto.slice(0, almohadilla).includes('//')) {
+    texto = decodificarSeguro(texto.slice(almohadilla + 1));
+  }
+  const partes = texto.split(':');
+  const version = VERSIONES_PROTOCOLO[partes[0]];
+  if (!version) throw new Error('Este QR no pertenece a Audio en Papel.');
+  if (partes.length < 6) throw new Error('Cabecera incompleta: se esperaban 6 campos.');
+  const [, id, numeroTxt, totalTxt, codec] = partes;
+  const numero = parseInt(numeroTxt, 10);
+  const total = parseInt(totalTxt, 10);
+  const datos = partes.slice(5).join(':');
+  if (!/^[A-Z0-9]{6}$/.test(id)) throw new Error('ID de mensaje no válido.');
+  if (!(total >= 1 && numero >= 1 && numero <= total)) throw new Error('Numeración de bloque incoherente.');
+  if (!CODECS[codec]) throw new Error('Códec desconocido: ' + codec);
+  if (!version.patron.test(datos)) throw new Error(`Los datos no son ${version.codificacion} válido.`);
+  return { id, numero, total, codec, datos, codificacion: version.codificacion };
+}
+
+/* ---------- Memoria entre escaneos ----------
+   Cuando los QRs son enlaces, cada escaneo ABRE LA PÁGINA DE NUEVO: todas las
+   variables se pierden. Por eso guardamos los bloques recibidos en
+   localStorage (memoria del navegador para este sitio) y los recuperamos al
+   arrancar. Así se puede escanear con la cámara del móvil, uno a uno, y la
+   serie se va completando aunque la página se recargue cada vez.
+   ------------------------------------------------------------------ */
+const CLAVE_RECEPCION = 'audiopapel.recepcion';
+
+/** Lo guardado por esta u otra pestaña, o null. */
+function leerGuardado() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_RECEPCION) || 'null'); } catch (_) { return null; }
+}
+
+/**
+ * Añade a nuestra lista los bloques que otra pestaña haya guardado del MISMO
+ * mensaje. Cada QR con enlace abre una pestaña nueva: si luego escaneas en
+ * una pestaña antigua, sin esto guardaría su lista vieja encima y perderías
+ * los bloques recibidos en las demás.
+ */
+function fusionarGuardado() {
+  const guardado = leerGuardado();
+  if (!guardado || guardado.id !== recepcion.id || !Array.isArray(guardado.bloques)) return 0;
+  let nuevos = 0;
+  for (const [numero, datos] of guardado.bloques) {
+    if (!recepcion.bloques.has(numero)) { recepcion.bloques.set(numero, datos); nuevos++; }
+  }
+  return nuevos;
+}
+
+function guardarRecepcion() {
+  if (!recepcion.id) { localStorage.removeItem(CLAVE_RECEPCION); return; }
+  fusionarGuardado();
+  try {
+    localStorage.setItem(CLAVE_RECEPCION, JSON.stringify({
+      id: recepcion.id, total: recepcion.total, codec: recepcion.codec,
+      codificacion: recepcion.codificacion,
+      bloques: [...recepcion.bloques],           // el Map no es JSON: lo pasamos a lista
+      ts: Date.now(),                            // para que caduque solo
+    }));
+  } catch (_) { /* memoria llena o modo privado: seguimos sin persistencia */ }
+}
+
+function recuperarRecepcion() {
+  const guardado = leerGuardado();
+  if (!guardado || !guardado.id || !CODECS[guardado.codec]) return false;
+  // Una serie a medias solo tiene sentido durante un rato: pasado un día la
+  // descartamos para no arrastrar estado viejo entre clases.
+  if (!guardado.ts || Date.now() - guardado.ts > 24 * 60 * 60 * 1000) {
+    localStorage.removeItem(CLAVE_RECEPCION);
+    return false;
+  }
+  recepcion.id = guardado.id;
+  recepcion.total = guardado.total;
+  recepcion.codec = guardado.codec;
+  recepcion.codificacion = guardado.codificacion || 'base64';   // lo guardado antes de la v2 era Base64
+  recepcion.bloques = new Map(guardado.bloques);
+  recepcion.completado = false;
+  return true;
+}
+
+/* Otra pestaña ha guardado algo: si es nuestro mensaje, traemos sus bloques
+   para que el panel rojo/verde esté al día en todas las pestañas abiertas. */
+window.addEventListener('storage', (e) => {
+  if (e.key !== CLAVE_RECEPCION || !recepcion.id) return;
+  if (fusionarGuardado()) pintarPanel();
+});
+
+function reiniciarRecepcion(cabecera) {
+  recepcion.id = cabecera ? cabecera.id : null;
+  recepcion.total = cabecera ? cabecera.total : 0;
+  recepcion.codec = cabecera ? cabecera.codec : null;
+  recepcion.codificacion = cabecera ? cabecera.codificacion : null;
+  recepcion.bloques.clear();
+  recepcion.completado = false;
+  guardarRecepcion();
+  $('bloque-audio').style.display = 'none';
+  $('bloque-texto').style.display = 'none';
+  $('bloque-toque').style.display = 'none';
+  $('audio-final').removeAttribute('src');
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  pintarPanel();
+}
+
+/** Punto de entrada común: cámara, imagen subida, texto pegado o simulación. */
+function procesarTextoQR(texto) {
+  const estado = $('estado-receptor');
+  let cab;
+  try {
+    cab = analizarQR(texto);
+  } catch (err) {
+    mostrarEstado(estado, '⚠️ ' + err.message, 'error');
+    return;
+  }
+  // ID nuevo → mensaje nuevo: empezamos una reconstrucción desde cero.
+  if (cab.id !== recepcion.id) {
+    reiniciarRecepcion(cab);
+    mostrarEstado(estado, `Nuevo mensaje ${cab.id}: ${cab.total} bloques, ${CODECS[cab.codec].etiqueta}.`);
+  }
+  if (recepcion.bloques.has(cab.numero)) {
+    // Si el mensaje ya estaba completo, escanear cualquiera de sus QR es la
+    // forma natural de decir "quiero oírlo otra vez": lo reconstruimos. Solo
+    // una vez por visita a la página (completado), para que la cámara, que
+    // lee el mismo QR varias veces por segundo, no lo relance en bucle.
+    if (recepcion.bloques.size === recepcion.total) {
+      if (!recepcion.completado) {
+        recepcion.completado = true;
+        pintarPanel();
+        reconstruirMensaje(true);
+      } else {
+        mostrarEstado(estado, 'Este mensaje ya está completo: usa los controles de abajo para volver a oírlo.', 'ok');
+      }
+      return;
+    }
+    mostrarEstado(estado, `El bloque ${cab.numero} ya estaba. Busca el que falta.`, 'aviso');
+    return;
+  }
+  recepcion.bloques.set(cab.numero, cab.datos);
+  guardarRecepcion();
+  pitido();
+  mostrarEstado(estado, `✅ Recibido el bloque ${cab.numero} de ${cab.total}.`, 'ok');
+  pintarPanel();
+  if (recepcion.bloques.size === recepcion.total && !recepcion.completado) {
+    recepcion.completado = true;
+    reconstruirMensaje(true);
+  }
+}
+
+/** Panel de badges rojo/verde y texto de guiado. */
+function pintarPanel() {
+  const panel = $('panel-bloques');
+  const guia = $('guia');
+  panel.innerHTML = '';
+  if (!recepcion.id) {
+    guia.textContent = 'Esperando el primer código QR…';
+    guia.className = 'guia';
+    return;
+  }
+  let primeroQueFalta = null;
+  for (let n = 1; n <= recepcion.total; n++) {
+    const tiene = recepcion.bloques.has(n);
+    if (!tiene && primeroQueFalta === null) primeroQueFalta = n;
+    const badge = document.createElement('div');
+    badge.className = 'badge ' + (tiene ? 'ok' : 'falta');
+    badge.textContent = tiene ? `QR ${n} OK` : `Falta QR ${n}`;
+    panel.appendChild(badge);
+  }
+  if (primeroQueFalta === null) {
+    // Sin "Reproduciendo…": puede que el navegador no deje sonar hasta que
+    // el usuario toque la pantalla. Lo que pasa con el sonido lo cuenta el
+    // mensaje de estado, que sí sabe si ha sonado o no.
+    guia.textContent = recepcion.total === 1
+      ? '✅ ¡Mensaje completo! (1 código QR)'
+      : `✅ ¡Mensaje completo! (los ${recepcion.total} códigos QR)`;
+    guia.className = 'guia completo';
+  } else {
+    guia.textContent = `👉 Por favor, enfoca el CÓDIGO QR número ${primeroQueFalta}  (${recepcion.bloques.size}/${recepcion.total})`;
+    guia.className = 'guia';
+  }
+}
+
+/**
+ * Todos los bloques están: se juntan en orden, se decodifica el Base64 y,
+ * según el códec de la cabecera, se reconstruye el audio o el texto.
+ */
+async function reconstruirMensaje(reproducir) {
+  const estado = $('estado-receptor');
+  $('bloque-toque').style.display = 'none';
+  try {
+    // Juntamos los trozos EN ORDEN (da igual en qué orden se escanearan) y
+    // deshacemos la codificación de texto que traía la cabecera.
+    let datos = '';
+    for (let n = 1; n <= recepcion.total; n++) datos += recepcion.bloques.get(n);
+    const bytes = recepcion.codificacion === 'base32' ? base32ABytes(datos) : base64ABytes(datos);
+
+    // ---- Modo TEXTO: descomprimir, mostrar y leer en voz alta ----
+    if (CODECS[recepcion.codec].tipo === 'texto') {
+      const texto = await descomprimirTexto(bytes, recepcion.codec);
+      $('texto-recibido').textContent = texto;
+      $('info-texto').textContent = `${texto.split(/\s+/).length} palabras · ${bytes.length} bytes en los QRs · ${CODECS[recepcion.codec].etiqueta}`;
+      $('bloque-texto').style.display = '';
+      await detenerCamara();
+      if (!('speechSynthesis' in window)) {
+        mostrarEstado(estado, '💬 Mensaje reconstruido (este navegador no tiene voz sintética).', 'aviso');
+        return;
+      }
+      const leer = () => hablar(texto, () => {
+        pedirToque(leer);
+        mostrarEstado(estado, '💬 Mensaje listo. Toca el botón para escucharlo: el navegador no deja hablar sin un toque.', 'ok');
+      });
+      if (!reproducir) {
+        mostrarEstado(estado, '💬 Último mensaje recibido. Pulsa «Escuchar otra vez» para oírlo.', 'ok');
+      } else if (haHabidoToque() === false) {
+        pedirToque(leer);
+        mostrarEstado(estado, '💬 Mensaje listo. Toca el botón para escucharlo: el navegador no deja hablar sin un toque.', 'ok');
+      } else {
+        pitido(1320, 0.15);
+        leer();
+        mostrarEstado(estado, '💬 Mensaje reconstruido y leyéndolo en voz alta.', 'ok');
+      }
+      return;
+    }
+
+    // ---- Modo AUDIO: Codec 2 → PCM → WAV ----
+    const pcm = await descomprimirConCodec2(bytes, recepcion.codec);
+    const wav = pcmAWav(pcm, TASA_CODEC2);
+    const audio = $('audio-final');
+    ponerAudio(audio, wav);
+    $('info-audio').textContent = `${formatoTiempo(pcm.length / TASA_CODEC2)} de audio · ${bytes.length} bytes comprimidos · ${CODECS[recepcion.codec].etiqueta}`;
+    $('bloque-audio').style.display = '';
+    await detenerCamara();
+    if (!reproducir) {
+      mostrarEstado(estado, '🔊 Último mensaje recibido. Pulsa ▶ para escucharlo.', 'ok');
+      return;
+    }
+    pitido(1320, 0.15);
+    try {
+      await audio.play();
+      mostrarEstado(estado, '🔊 Mensaje reconstruido y reproduciéndose.', 'ok');
+    } catch (_) {
+      // Bloqueado por la política de autoplay: decimos la verdad y damos botón.
+      pedirToque(() => audio.play());
+      mostrarEstado(estado, '🔊 Mensaje listo. Toca el botón para escucharlo: el navegador no deja sonar sin un toque.', 'ok');
+    }
+  } catch (err) {
+    console.error(err);
+    mostrarEstado(estado, 'No se pudo reconstruir el mensaje: ' + err.message, 'error');
+  }
+}
+
+/* ---------- Decodificador de QR (jsQR) en un Web Worker ----------
+   Decodificar un fotograma grande tarda 100-400 ms. Si lo hiciéramos en el
+   hilo principal la página se congelaría; por eso jsQR corre en un Worker:
+   le enviamos los píxeles y nos devuelve el texto (o null). El código de
+   jsQR está incrustado al final del archivo en un <script type="text/plain">
+   que el navegador NO ejecuta: lo leemos como texto y construimos el Worker.
+   ------------------------------------------------------------------ */
+let trabajadorQR = null;
+let decodificarEnHilo = null;          // alternativa si el navegador no permite Workers
+const peticionesQR = new Map();
+let contadorPeticiones = 0;
+
+function prepararDecodificador() {
+  if (trabajadorQR || decodificarEnHilo) return;
+  const fuente = $('jsqr-fuente').textContent
+    + `\nself.onmessage = (e) => { const { id, datos, ancho, alto } = e.data;
+         const r = self.jsQR(new Uint8ClampedArray(datos), ancho, alto, { inversionAttempts: 'dontInvert' });
+         self.postMessage({ id, texto: r ? r.data : null }); };`;
+  try {
+    trabajadorQR = new Worker(URL.createObjectURL(new Blob([fuente], { type: 'text/javascript' })));
+    trabajadorQR.onmessage = (e) => {
+      const resolver = peticionesQR.get(e.data.id);
+      peticionesQR.delete(e.data.id);
+      if (resolver) resolver(e.data.texto);
+    };
+  } catch (_) {
+    // Sin Worker (algún navegador con file://): ejecutamos jsQR aquí mismo.
+    const jsQR = new Function($('jsqr-fuente').textContent + '\nreturn jsQR;')();
+    decodificarEnHilo = (img) => { const r = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' }); return r ? r.data : null; };
+  }
+}
+
+/** ImageData → Promise<texto | null> */
+function decodificarQR(imagen) {
+  prepararDecodificador();
+  if (decodificarEnHilo) return Promise.resolve(decodificarEnHilo(imagen));
+  return new Promise((resolver) => {
+    const id = ++contadorPeticiones;
+    peticionesQR.set(id, resolver);
+    trabajadorQR.postMessage({ id, datos: imagen.data.buffer, ancho: imagen.width, alto: imagen.height }, [imagen.data.buffer]);
+  });
+}
+
+/* ---------- Llegada por enlace ----------
+   Si la página se ha abierto desde un QR-enlace, la dirección trae
+   "#AUDIORR:…". Lo procesamos como si lo hubiéramos escaneado nosotros y
+   limpiamos la barra de direcciones para que al recargar no se repita.
+   ------------------------------------------------------------------ */
+function procesarLlegadaPorEnlace() {
+  const carga = decodificarSeguro(location.hash.slice(1));
+  if (!/^AUDIORR2?:/.test(carga)) return false;     // v1 o v2 del protocolo
+  cambiarPestana('receptor');
+  procesarTextoQR(carga);
+  history.replaceState(null, '', location.origin + location.pathname);
+  return true;
+}
+
+/* Si la aplicación YA estaba abierta en esa pestaña y el móvil la reutiliza
+   para el siguiente QR, la dirección solo cambia a partir del '#': el
+   navegador NO recarga la página, solo avisa con el evento "hashchange".
+   Sin esto, ese bloque se quedaría sin leer. */
+window.addEventListener('hashchange', procesarLlegadaPorEnlace);
+
+/* ---------- Detector nativo del navegador ----------
+   Chrome en Android trae BarcodeDetector: el mismo motor que usa la app de
+   cámara del sistema. Es bastante mejor que jsQR con códigos grandes o poco
+   enfocados, así que lo usamos cuando existe y dejamos jsQR de reserva
+   (Firefox, Safari y Chrome de escritorio todavía no lo traen).
+   ------------------------------------------------------------------ */
+let detectorNativo;                    // undefined = aún no comprobado, false = no hay
+
+async function obtenerDetectorNativo() {
+  if (detectorNativo !== undefined) return detectorNativo;
+  detectorNativo = false;
+  if ('BarcodeDetector' in window) {
+    try {
+      const formatos = await window.BarcodeDetector.getSupportedFormats();
+      if (formatos.includes('qr_code')) detectorNativo = new window.BarcodeDetector({ formats: ['qr_code'] });
+    } catch (_) { /* nos quedamos con jsQR */ }
+  }
+  return detectorNativo;
+}
+
+/* ---------- Cámara ----------
+   Bucle clásico de visión por computador: vídeo → detectar → texto.
+   Dos detalles que marcan la diferencia en un móvil:
+     · ENFOQUE: pedimos focusMode "continuous" y permitimos tocar para
+       reenfocar. Muchos Android abren por defecto una cámara secundaria
+       (gran angular) que enfoca fatal de cerca: por eso hay un desplegable
+       para cambiar de cámara.
+     · RESOLUCIÓN: un QR de versión 40 tiene 177 módulos; con menos de
+       ~800 px de lado útil no hay forma de leerlo. Pedimos 1920 y, si la
+       cámara da más, lo aprovechamos.
+   ------------------------------------------------------------------ */
+const LADO_DECODIFICACION = 1024;      // lado al que reducimos el fotograma para jsQR
+const CLAVE_CAMARA = 'audiopapel.camara';
+let flujoCamara = null;
+let escaneando = false;
+let camarasDisponibles = [];
+const lienzo = document.createElement('canvas');
+
+/** Abre la cámara indicada (o la preferida) y arranca el escaneo. */
+async function iniciarCamara(idDispositivo) {
+  await detenerCamara();
+  const preferida = idDispositivo || localStorage.getItem(CLAVE_CAMARA) || null;
+  const restricciones = {
+    audio: false,
+    video: preferida
+      ? { deviceId: { exact: preferida }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      : { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+  };
+  try {
+    flujoCamara = await navigator.mediaDevices.getUserMedia(restricciones);
+  } catch (err) {
+    // El deviceId guardado puede haber dejado de existir: reintentamos sin él.
+    if (preferida) { localStorage.removeItem(CLAVE_CAMARA); return iniciarCamara(null); }
+    throw err;
+  }
+
+  const video = $('video');
+  video.srcObject = flujoCamara;
+  await video.play();
+  $('visor').style.display = '';
+  $('controles-camara').style.display = '';
+  $('btn-camara').textContent = 'Parar cámara';
+
+  const pista = flujoCamara.getVideoTracks()[0];
+  if (idDispositivo) localStorage.setItem(CLAVE_CAMARA, idDispositivo);
+  await listarCamaras(pista);
+
+  // Si el navegador nos ha dado una cámara trasera que no es la principal, y
+  // el usuario no ha elegido ninguna a mano, cambiamos a la recomendada.
+  // Solo se intenta una vez (yaCorregida) para no entrar en bucle.
+  if (!idDispositivo && !localStorage.getItem(CLAVE_CAMARA) && !iniciarCamara.yaCorregida) {
+    const mejor = camaraRecomendada();
+    if (mejor && mejor.deviceId && mejor.deviceId !== pista.getSettings().deviceId) {
+      iniciarCamara.yaCorregida = true;
+      return iniciarCamara(mejor.deviceId);
+    }
+  }
+
+  await ajustarCamara(pista);
+  mostrarDiagnostico(pista);
+
+  escaneando = true;
+  bucleEscaneo(++sesionCamara);
+  mostrarEstado($('estado-receptor'),
+    'Cámara activa. Llena el cuadro con el QR y mantén el móvil quieto. Si la imagen sale borrosa, toca la pantalla para enfocar o prueba otra cámara en el desplegable.');
+}
+
+/** Pide a la cámara enfoque continuo y la mejor resolución que admita. */
+async function ajustarCamara(pista) {
+  if (!pista.getCapabilities) return;
+  let caps = {};
+  try { caps = pista.getCapabilities(); } catch (_) { return; }
+  const avanzado = [];
+  if (caps.focusMode && caps.focusMode.includes('continuous')) avanzado.push({ focusMode: 'continuous' });
+  // Balance de blancos automático: el papel blanco bajo luz de aula tiende a
+  // salir amarillento, y un QR con poco contraste se lee peor.
+  if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) avanzado.push({ whiteBalanceMode: 'continuous' });
+  if (avanzado.length) { try { await pista.applyConstraints({ advanced: avanzado }); } catch (_) {} }
+  // Resolución: 1920 de ancho es DE SOBRA para leer un QR de versión 40, y
+  // cada píxel de más lo paga la batería. Solo subimos si la cámara está
+  // dando menos de eso; nunca forzamos el máximo del sensor.
+  const anchoActual = pista.getSettings().width || 0;
+  if (caps.width && caps.width.max && anchoActual < 1280) {
+    const ancho = Math.min(caps.width.max, 1920);
+    try { await pista.applyConstraints({ width: { ideal: ancho } }); } catch (_) {}
+  }
+  // Linterna y zoom, si la cámara los expone.
+  $('btn-linterna').style.display = caps.torch ? '' : 'none';
+  const ctrlZoom = $('ctrl-zoom');
+  if (caps.zoom) {
+    const z = $('zoom');
+    z.min = caps.zoom.min; z.max = caps.zoom.max; z.step = caps.zoom.step || 0.1;
+    z.value = pista.getSettings().zoom || caps.zoom.min;
+    ctrlZoom.style.display = '';
+  } else {
+    ctrlZoom.style.display = 'none';
+  }
+}
+
+/** Rellena el desplegable con las cámaras del dispositivo. */
+async function listarCamaras(pista) {
+  try {
+    const dispositivos = await navigator.mediaDevices.enumerateDevices();
+    camarasDisponibles = dispositivos.filter(d => d.kind === 'videoinput');
+  } catch (_) { return; }
+  const sel = $('sel-camara');
+  const actual = pista.getSettings().deviceId;
+  sel.innerHTML = '';
+  camarasDisponibles.forEach((c, i) => {
+    const op = document.createElement('option');
+    op.value = c.deviceId;
+    op.textContent = c.label || ('Cámara ' + (i + 1));
+    sel.appendChild(op);
+  });
+  if (actual) sel.value = actual;
+  sel.parentElement.style.display = camarasDisponibles.length > 1 ? '' : 'none';
+}
+
+/* ---------- ¿Cuál es la cámara BUENA? ----------
+   Un Android moderno declara 3 o 4 cámaras traseras: principal, gran angular,
+   macro y sensor de profundidad. "facingMode: environment" solo dice "una de
+   atrás", y el navegador suele devolver la primera que encuentra, que a
+   menudo NO es la principal: de ahí que saliera la 2 en vez de la 0.
+   La única pista que tenemos desde la web es la etiqueta, que en Chrome para
+   Android es del estilo "camera2 0, facing back". Reglas que aplicamos:
+     · nos quedamos con las traseras,
+     · descartamos las que se anuncian como angular, macro o profundidad,
+     · y entre las que quedan elegimos la de número más bajo, que en la
+       práctica siempre es la principal (la 0).
+   Es una heurística, no una garantía: por eso el desplegable sigue ahí y la
+   elección del usuario manda y se recuerda.
+   ------------------------------------------------------------------ */
+function camaraRecomendada() {
+  const secundaria = /(wide|ultra|gran.?angular|tele|macro|depth|profundidad|mono(chrome)?|infra|\bir\b)/i;
+  const trasera = /(back|rear|environment|trasera|posterior)/i;
+  const candidatas = camarasDisponibles
+    .filter(c => c.label && trasera.test(c.label) && !secundaria.test(c.label));
+  if (!candidatas.length) return null;
+  const numero = (c) => {
+    const m = c.label.match(/camera2?\s+(\d+)/i) || c.label.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 99;
+  };
+  candidatas.sort((a, b) => numero(a) - numero(b));
+  return candidatas[0];
+}
+
+/** Texto pequeño con lo que está pasando de verdad (útil para depurar en clase). */
+function mostrarDiagnostico(pista) {
+  const s = pista.getSettings ? pista.getSettings() : {};
+  const partes = [];
+  const camara = camarasDisponibles.find(c => c.deviceId === s.deviceId);
+  if (camara && camara.label) partes.push(camara.label);
+  if (s.width && s.height) partes.push(s.width + '×' + s.height);
+  if (s.focusMode) partes.push('enfoque: ' + s.focusMode);
+  partes.push(detectorNativo ? 'detector del navegador' : 'jsQR');
+  $('diag-camara').textContent = partes.join(' · ');
+}
+
+/** Bucle de escaneo: detector nativo si lo hay; si no, canvas + jsQR. */
+/* Analizar un fotograma cuesta entre 30 ms (detector del navegador) y 400 ms
+   (jsQR en un móvil modesto). Si encadenamos análisis sin descanso, el
+   teléfono va al 100 % de CPU: se calienta, gasta batería y encima va MÁS
+   lento, porque el sistema acaba bajando la frecuencia del procesador.
+   La regla de aquí: después de cada análisis descansamos aproximadamente lo
+   mismo que hemos tardado. Así nunca pasamos de ~50 % de uso, y el ritmo se
+   adapta solo a cada teléfono. Se pierden fotogramas, pero para apuntar a un
+   papel quieto con 4 o 5 lecturas por segundo sobra. */
+const DESCANSO_MINIMO = 80;     // ms entre análisis, aunque el móvil vuele
+const DESCANSO_MAXIMO = 500;    // ms, para no parecer congelada en móviles lentos
+let msUltimoAnalisis = 0;
+
+/* Cada vez que se enciende la cámara se abre una "sesión" con su número.
+   Un bucle solo sigue vivo mientras su número sea el actual: si paras y
+   arrancas deprisa, o cambias de cámara mientras se analiza un fotograma,
+   el bucle viejo se da cuenta y termina, en vez de quedarse dos analizando
+   a la vez (el doble de CPU y de calor). */
+let sesionCamara = 0;
+
+async function bucleEscaneo(miSesion) {
+  const video = $('video');
+  const nativo = await obtenerDetectorNativo();
+  if (miSesion !== sesionCamara || !flujoCamara) return;
+  mostrarDiagnostico(flujoCamara.getVideoTracks()[0]);
+  let alterna = false;
+  while (escaneando && miSesion === sesionCamara) {
+    if (video.readyState >= 2 && video.videoWidth && !document.hidden) {
+      const t0 = performance.now();
+      let texto = null;
+      if (nativo) {
+        try {
+          const encontrados = await nativo.detect(video);
+          if (encontrados.length) texto = encontrados[0].rawValue;
+        } catch (_) { /* un fotograma fallido no es nada grave */ }
+      } else {
+        // Una sola pasada por fotograma, alternando: así cuesta la mitad que
+        // hacer siempre las dos y seguimos cubriendo los dos encuadres.
+        texto = await leerConJsQR(video, alterna);
+        alterna = !alterna;
+      }
+      msUltimoAnalisis = Math.round(performance.now() - t0);
+      if (miSesion !== sesionCamara) return;       // se apagó mientras analizábamos
+      if (texto) {
+        $('visor').classList.add('leido');
+        procesarTextoQR(texto);
+        setTimeout(() => $('visor').classList.remove('leido'), 400);
+      }
+      actualizarRitmo();
+    }
+    const descanso = Math.min(DESCANSO_MAXIMO, Math.max(DESCANSO_MINIMO, msUltimoAnalisis));
+    await new Promise(r => setTimeout(r, descanso));
+  }
+}
+
+/** Muestra el ritmo real junto al resto del diagnóstico. */
+function actualizarRitmo() {
+  const caja = $('diag-camara');
+  if (!caja) return;
+  const base = caja.textContent.split(' · ').filter(t => !t.endsWith('/s') && !t.endsWith('ms'));
+  const porSegundo = (1000 / Math.max(1, msUltimoAnalisis + Math.max(DESCANSO_MINIMO, msUltimoAnalisis))).toFixed(1);
+  caja.textContent = base.concat(msUltimoAnalisis + 'ms', porSegundo + ' lecturas/s').join(' · ');
+}
+
+/**
+ * Un intento con jsQR. Vamos alternando entre dos encuadres en vez de probar
+ * los dos en cada fotograma (que costaba el doble):
+ *   · centro = false → el fotograma entero reducido: encuentra el QR esté
+ *     donde esté, pero con menos detalle.
+ *   · centro = true  → solo el cuadrado central: más detalle en la zona de la
+ *     mira, que es donde el usuario pone el código.
+ */
+async function leerConJsQR(video, centro) {
+  const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+  if (centro) {
+    const lado = Math.min(video.videoWidth, video.videoHeight);
+    const destino = Math.min(lado, LADO_DECODIFICACION);
+    lienzo.width = lienzo.height = destino;
+    ctx.drawImage(video, (video.videoWidth - lado) / 2, (video.videoHeight - lado) / 2, lado, lado, 0, 0, destino, destino);
+  } else {
+    const escala = Math.min(1, LADO_DECODIFICACION / Math.max(video.videoWidth, video.videoHeight));
+    lienzo.width = Math.round(video.videoWidth * escala);
+    lienzo.height = Math.round(video.videoHeight * escala);
+    ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
+  }
+  return decodificarQR(ctx.getImageData(0, 0, lienzo.width, lienzo.height));
+}
+
+async function detenerCamara() {
+  escaneando = false;
+  sesionCamara++;                                 // cualquier bucle en marcha termina
+  if (!flujoCamara) return;
+  flujoCamara.getTracks().forEach(t => t.stop());
+  flujoCamara = null;
+  $('video').srcObject = null;
+  $('visor').style.display = 'none';
+  $('controles-camara').style.display = 'none';
+  $('btn-camara').textContent = 'Iniciar cámara';
+}
+
+/**
+ * Enfocar donde toca el usuario. pointsOfInterest y focusMode "single-shot"
+ * los soporta Chrome en Android; en el resto, al menos reactivamos el
+ * enfoque continuo, que suele bastar para sacar a la cámara del atasco.
+ */
+async function enfocarEn(ev) {
+  const pista = flujoCamara && flujoCamara.getVideoTracks()[0];
+  if (!pista || !pista.getCapabilities) return;
+  let caps = {};
+  try { caps = pista.getCapabilities(); } catch (_) { return; }
+  const avanzado = [];
+  if (ev && caps.pointsOfInterest) {
+    const r = $('video').getBoundingClientRect();
+    avanzado.push({ pointsOfInterest: [{
+      x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+      y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)),
+    }] });
+  }
+  if (caps.focusMode && caps.focusMode.includes('single-shot')) avanzado.push({ focusMode: 'single-shot' });
+  else if (caps.focusMode && caps.focusMode.includes('continuous')) avanzado.push({ focusMode: 'continuous' });
+  if (!avanzado.length) {
+    mostrarEstado($('estado-receptor'), 'Esta cámara no deja enfocar desde el navegador. Prueba otra cámara del desplegable o aléjate unos centímetros del papel.', 'aviso');
+    return;
+  }
+  try {
+    await pista.applyConstraints({ advanced: avanzado });
+    mostrarEstado($('estado-receptor'), 'Reenfocando…');
+  } catch (_) {
+    mostrarEstado($('estado-receptor'), 'La cámara rechazó la orden de enfoque.', 'aviso');
+  }
+}
+
+/* Si el usuario cambia de aplicación o bloquea la pantalla, apagamos la
+   cámara: seguir analizando en segundo plano es puro gasto de batería. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && flujoCamara) {
+    detenerCamara();
+    mostrarEstado($('estado-receptor'), 'Cámara apagada al salir de la aplicación. Pulsa «Iniciar cámara» para seguir.', 'aviso');
+  }
+});
+
+$('visor').addEventListener('click', enfocarEn);
+$('btn-enfocar').addEventListener('click', () => enfocarEn(null));
+
+$('sel-camara').addEventListener('change', async (e) => {
+  try { await iniciarCamara(e.target.value); }
+  catch (err) { mostrarEstado($('estado-receptor'), 'No se pudo abrir esa cámara: ' + (err.message || err), 'error'); }
+});
+
+$('btn-linterna').addEventListener('click', async () => {
+  const pista = flujoCamara && flujoCamara.getVideoTracks()[0];
+  if (!pista) return;
+  const encendida = !pista.getSettings().torch;
+  try {
+    await pista.applyConstraints({ advanced: [{ torch: encendida }] });
+    $('btn-linterna').textContent = encendida ? 'Apagar linterna' : 'Linterna';
+  } catch (_) {}
+});
+
+$('zoom').addEventListener('input', async (e) => {
+  const pista = flujoCamara && flujoCamara.getVideoTracks()[0];
+  if (!pista) return;
+  try { await pista.applyConstraints({ advanced: [{ zoom: parseFloat(e.target.value) }] }); } catch (_) {}
+});
+
+$('btn-camara').addEventListener('click', async () => {
+  try {
+    if (flujoCamara) { iniciarCamara.yaCorregida = false; await detenerCamara(); }
+    else await iniciarCamara(null);
+  } catch (err) {
+    flujoCamara = null;
+    mostrarEstado($('estado-receptor'), 'No se pudo abrir la cámara: ' + (err.message || err) + '. Recuerda: hace falta HTTPS o localhost.', 'error');
+  }
+});
+
+/**
+ * Leer un QR desde una foto o captura de pantalla. Probamos varios tamaños
+ * porque las fotos de móvil son enormes y jsQR trabaja mejor entre 500 y 1500 px.
+ */
+$('archivo-imagen').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  e.target.value = '';
+  const estado = $('estado-receptor');
+  mostrarEstado(estado, 'Buscando un QR en la imagen…');
+  const img = new Image();
+  const url = URL.createObjectURL(archivo);
+  try {
+    await new Promise((ok, ko) => { img.onload = ok; img.onerror = ko; img.src = url; });
+    for (const ladoMax of [1400, 1000, 700, 500]) {
+      const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight));
+      lienzo.width = Math.round(img.naturalWidth * escala);
+      lienzo.height = Math.round(img.naturalHeight * escala);
+      const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+      ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      const texto = await decodificarQR(ctx.getImageData(0, 0, lienzo.width, lienzo.height));
+      if (texto) { procesarTextoQR(texto); return; }
+    }
+    mostrarEstado(estado, 'No se encontró ningún QR legible en la imagen.', 'error');
+  } catch (_) {
+    mostrarEstado(estado, 'No se pudo abrir la imagen.', 'error');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+});
+
+$('btn-hablar').addEventListener('click', () => hablar($('texto-recibido').textContent));
+$('btn-callar').addEventListener('click', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
+
+$('btn-manual').addEventListener('click', () => {
+  const texto = $('texto-manual').value;
+  if (texto.trim()) procesarTextoQR(texto);
+});
+
+$('btn-reiniciar').addEventListener('click', () => {
+  reiniciarRecepcion(null);
+  mostrarEstado($('estado-receptor'), 'Recepción reiniciada. Apunta al primer QR.');
+});
+
+/* =====================================================================
+   6 · ARRANQUE
+   -----------------------------------------------------------------
+   Las librerías están incrustadas MÁS ABAJO en el archivo, así que
+   esperamos a que el documento entero esté cargado antes de usarlas.
+   ===================================================================== */
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await cargarModuloCodec2();
+    mostrarEstado($('estado-emisor'), 'Codec 2 listo. Pulsa «Grabar» o carga un archivo de audio.', 'ok');
+  } catch (err) {
+    console.error(err);
+    mostrarEstado($('estado-emisor'), 'No se pudo cargar Codec 2: ' + err.message, 'error');
+  }
+  // Las voces del sistema se cargan de forma diferida en algunos navegadores.
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();
+  actualizarModo();
+
+  // Recuperamos lo que hubiera a medias de escaneos anteriores. OJO: esto NO
+  // debe cambiar de pestaña. La aplicación arranca siempre en «Grabar», y
+  // solo salta al receptor cuando la dirección trae un bloque (#AUDIORR:…),
+  // es decir, cuando de verdad acabamos de escanear un QR con enlace.
+  recuperarRecepcion();
+  pintarPanel();
+  if (procesarLlegadaPorEnlace()) return;         // venimos de escanear un QR con enlace
+
+  // Sin enlace: dejamos el receptor preparado, pero SIN cambiar de pestaña.
+  if (recepcion.id && recepcion.bloques.size === recepcion.total) {
+    // Mensaje completo de la otra vez: lo dejamos listo para oír, sin sonar.
+    recepcion.completado = true;
+    reconstruirMensaje(false);
+  } else if (recepcion.id && recepcion.bloques.size) {
+    mostrarEstado($('estado-receptor'),
+      `Continuamos con el mensaje ${recepcion.id}: llevas ${recepcion.bloques.size} de ${recepcion.total} bloques. Pulsa «Empezar de cero» si quieres descartarlo.`);
+  }
+});
+</script>
+
+<!-- ================================================================== -->
+<!--  LIBRERÍAS INCRUSTADAS (no hace falta leerlas para entender la práctica) -->
+<!-- ================================================================== -->
+
+<!-- qrcode-generator 1.4.4 · MIT · https://github.com/kazuhikoarase/qrcode-generator -->
+<script>
+__QRCODE_JS__
+</script>
+
+<!-- jsQR 1.4.0 · Apache 2.0 · https://github.com/cozmo/jsQR
+     Va como "text/plain": el navegador no lo ejecuta; la app lo lee y lo carga en un Web Worker. -->
+<script id="jsqr-fuente" type="text/plain">
+__JSQR_JS__
+</script>
+
+<!-- Codec 2 (libcodec2, LGPL 2.1, David Rowe) compilado a WebAssembly por codec2-web (MIT)
+     https://github.com/drowe67/codec2 · https://github.com/belteshazzar/codec2-web
+     Pegamento de Emscripten adaptado para funcionar como script clásico con el wasm incrustado. -->
+<script>
+__CODEC2_GLUE_JS__
+</script>
+<script>
+const CODEC2_WASM_BASE64 = "__CODEC2_WASM_BASE64__";
+</script>
+
+</body>
+</html>

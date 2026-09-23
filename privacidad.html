@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacidad y cookies · audiopapel</title>
+<meta name="description" content="Qué datos trata audiopapel (casi ninguno): tu voz se procesa en tu dispositivo y viaja en el papel, nunca por nuestro servidor.">
+<link rel="canonical" href="https://audiopapel.com/privacidad.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="fuentes/fuentes.css">
+<style>
+  :root { --papel: #FAFBF8; --hoja: #FFFFFF; --tinta: #151C2C; --tinta-2: #475069; --boli: #2346B0; --subrayado: #FFE75A; --borde: #DCE1EA; }
+  @media (prefers-color-scheme: dark) { :root { color-scheme: dark; --papel: #0F141D; --hoja: #161D2A; --tinta: #E9EDF4; --tinta-2: #B3BCCD; --boli: #93B1FF; --subrayado: rgba(242, 213, 68, .38); --borde: #283246; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--papel); color: var(--tinta); font: 1.05rem/1.65 "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 28px 16px 60px; }
+  a { color: var(--boli); }
+  .volver { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+  h1, h2 { font-family: "Archivo", "Arial Narrow", sans-serif; font-stretch: 75%; font-weight: 850; line-height: 1.05; }
+  h1 { font-size: 2.6rem; margin: 18px 0 8px; }
+  h2 { font-size: 1.6rem; margin: 34px 0 8px; }
+  .fecha { color: var(--tinta-2); font-size: .92rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; margin-top: 10px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--borde); }
+  th { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-2); }
+  .tabla { overflow-x: auto; }
+  /* Datos que el titular de la web debe completar antes de publicar */
+  .rellenar { background: var(--subrayado); padding: 0 .25em; border-radius: 3px; font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <a class="volver" href="./">← audiopapel</a>
+  <h1>Privacidad y cookies</h1>
+  <p class="fecha">Última actualización: 23 de septiembre de 2026</p>
+
+  <h2>Lo importante, en corto</h2>
+  <p><strong>Tu voz no pasa por nuestro servidor.</strong> audiopapel graba, comprime y genera los códigos QR dentro de tu navegador. Al escanear, los datos del mensaje viajan en la parte del enlace que va tras el símbolo «#», que el navegador nunca envía a ningún servidor. No hay cuentas, ni registro, ni base de datos de mensajes.</p>
+
+  <h2>Contacto</h2>
+  <p>audiopapel es un proyecto personal y educativo, gratuito y sin publicidad. Para cualquier cuestión sobre privacidad, <a href="https://github.com/dgedise/audiopapel/issues">abre una incidencia en el repositorio del proyecto</a>.</p>
+
+  <h2>Qué datos se tratan y quién los trata</h2>
+  <div class="tabla">
+  <table>
+    <tr><th>Qué</th><th>Quién</th><th>Para qué</th></tr>
+    <tr><td>Tu voz, los mensajes y los códigos generados</td><td>Nadie más que tu dispositivo</td><td>Se procesan en tu navegador y no se envían a ningún sitio.</td></tr>
+    <tr><td>Tu dirección IP y los datos técnicos de la visita</td><td>El proveedor de alojamiento, GitHub Pages (GitHub, Inc.)</td><td>Servir la página. Los registros técnicos del servidor son del proveedor y se rigen por su política.</td></tr>
+    <tr><td>Tu voz, solo si usas el <em>dictado</em> del modo texto</td><td>El servicio de reconocimiento de voz de tu navegador (Google en Chrome, Apple en Safari)</td><td>Convertir lo que dices en texto, igual que cuando dictas en el teclado del móvil. Si no quieres usarlo, escribe el mensaje a mano.</td></tr>
+  </table>
+  </div>
+  <p>Las tipografías se sirven desde este mismo sitio: su carga no comunica tu visita a terceros.</p>
+
+  <h2>Cookies y almacenamiento local</h2>
+  <p>audiopapel no usa cookies propias. Guarda en tu navegador (con <code>localStorage</code>) dos cosas estrictamente necesarias para que funcione lo que pides, que nunca salen de tu dispositivo:</p>
+  <ul>
+    <li>los trozos de un mensaje que estás escaneando, para poder completarlo aunque la página se recargue (se borran solos a las 24 horas o al pulsar «Empezar de cero»);</li>
+    <li>la cámara que elegiste para escanear.</li>
+  </ul>
+  <p>Esta web no muestra publicidad ni usa herramientas de analítica: no hay cookies de terceros.</p>
+
+  <h2>Tus derechos</h2>
+  <p>Como la web no guarda datos tuyos, no hay nada que consultar, corregir ni borrar. Si crees que algo no se ha hecho bien, puedes decírnoslo por la vía de contacto o reclamar ante la <a href="https://www.aepd.es/">Agencia Española de Protección de Datos</a>.</p>
+
+  <h2>Menores</h2>
+  <p>audiopapel se usa en clase. No pide ni guarda datos personales, por lo que pueden usarlo menores sin registro.</p>
+</main>
+</body>
+</html>

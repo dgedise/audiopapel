@@ -1,0 +1,6 @@
+# ads.txt de audiopapel.com
+# Cuando AdSense apruebe el sitio:
+#   1. Cambia pub-0000000000000000 por tu identificador de editor (sin "ca-").
+#   2. Renombra este archivo a ads.txt y súbelo a la raíz del sitio.
+# No lo subas con el identificador de ejemplo: un ads.txt erróneo es peor que ninguno.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

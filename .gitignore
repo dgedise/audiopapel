@@ -1,0 +1,7 @@
+# Archivos personales o que no forman parte del sitio
+prompt.txt
+MOD_QRCODER.vb
+web.config
+ejemplo_voz.wav
+__pycache__/
+pendiente_adsense/
