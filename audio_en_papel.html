@@ -495,8 +495,8 @@
       <p id="info-audio" class="suave"></p>
       <audio id="audio-final" controls></audio>
       <div class="fila" style="margin-top:10px">
+        <button class="boton btn-qr-receptor">Pasarlo a QR para imprimir</button>
         <button class="boton secundario btn-enlace-receptor">Enviar como enlace</button>
-        <button class="boton secundario btn-qr-receptor">Pasarlo a QR para imprimir</button>
       </div>
     </div>
 
@@ -884,7 +884,15 @@ function pedirToque(accion) {
     $('bloque-toque').style.display = 'none';
     accion();
   };
-  $('bloque-toque').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Arriba del todo, no centrado: así, en el móvil, debajo se ven también el
+  // reproductor y los botones «Enviar como enlace» y «Pasarlo a QR».
+  $('bloque-toque').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Baja hasta el mensaje recompuesto (cuando no hace falta el botón de tocar). */
+function llevarAlResultado(bloque) {
+  if ($('bloque-toque').style.display !== 'none') return;     // pedirToque ya ha bajado
+  bloque.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /** ¿Ha tocado ya el usuario esta página? (undefined si el navegador no lo sabe) */
@@ -1855,6 +1863,7 @@ async function reconstruirMensaje(reproducir) {
       await detenerCamara();
       if (!('speechSynthesis' in window)) {
         mostrarEstado(estado, '💬 Mensaje reconstruido (este navegador no tiene voz sintética).', 'aviso');
+        llevarAlResultado($('bloque-texto'));
         return;
       }
       const leer = () => hablar(texto, () => {
@@ -1871,6 +1880,7 @@ async function reconstruirMensaje(reproducir) {
         leer();
         mostrarEstado(estado, '💬 Mensaje reconstruido y leyéndolo en voz alta.', 'ok');
       }
+      llevarAlResultado($('bloque-texto'));
       return;
     }
 
@@ -1884,6 +1894,7 @@ async function reconstruirMensaje(reproducir) {
     await detenerCamara();
     if (!reproducir) {
       mostrarEstado(estado, '🔊 Último mensaje recibido. Pulsa ▶ para escucharlo.', 'ok');
+      llevarAlResultado($('bloque-audio'));
       return;
     }
     pitido(1320, 0.15);
@@ -1895,6 +1906,7 @@ async function reconstruirMensaje(reproducir) {
       pedirToque(() => audio.play());
       mostrarEstado(estado, '🔊 Mensaje listo. Toca el botón para escucharlo: el navegador no deja sonar sin un toque.', 'ok');
     }
+    llevarAlResultado($('bloque-audio'));
   } catch (err) {
     console.error(err);
     mostrarEstado(estado, 'No se pudo reconstruir el mensaje: ' + err.message, 'error');
