@@ -422,6 +422,7 @@
           <button id="btn-simular" class="boton secundario">Simular el escaneo (sin cámara)</button>
         </div>
         <p class="suave">Consejo: si la cámara del receptor no consigue leer los QRs, vuelve a generar con un tamaño de QR más pequeño.</p>
+        <p class="suave" id="contador-global" hidden></p>
       </div>
       <div id="tarjetas-qr" class="tarjetas-qr" style="margin-top:12px"></div>
     </div>
@@ -1257,6 +1258,7 @@ async function procesarTexto() {
     const id = generarId();
     bloquesGenerados = trocearEnBloques(bytes, id, clave, versionQR);
     pintarQRs(bloquesGenerados);
+    contarQRGenerados(bloquesGenerados.length, 'texto');
 
     const palabras = texto.split(' ').length;
     const crudo = new TextEncoder().encode(texto).length;
@@ -1304,6 +1306,7 @@ async function procesarAudio(blob) {
     const id = generarId();
     bloquesGenerados = trocearEnBloques(bytes, id, claveCodec, versionQR);
     pintarQRs(bloquesGenerados);
+    contarQRGenerados(bloquesGenerados.length, 'audio');
 
     // Estadísticas para la clase: cuánto hemos comprimido.
     const bytesPcm = pcm.length * 2;
@@ -1343,10 +1346,41 @@ const DIRECCION_OFICIAL = 'https://audiopapel.com/audio_en_papel.html';
  *     la red de casa), un enlace a esa dirección no le serviría de nada a
  *     un móvil: usamos la dirección oficial.
  */
-function direccionDeEstaPagina() {
+function estaEnWebPublica() {
   const esWeb = location.protocol === 'http:' || location.protocol === 'https:';
   const esLocal = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/.test(location.hostname);
-  return esWeb && !esLocal ? location.origin + location.pathname : DIRECCION_OFICIAL;
+  return esWeb && !esLocal;
+}
+
+function direccionDeEstaPagina() {
+  return estaEnWebPublica() ? location.origin + location.pathname : DIRECCION_OFICIAL;
+}
+
+/* ---------- Contador de códigos QR generados ----------
+   Al generar, avisamos a una hoja de cálculo (Google Apps Script, ver
+   contador/LEEME.md) de CUÁNTOS códigos se han creado y en qué modo. Nada
+   más: ni la voz, ni el texto, ni el contenido de los QR. Si el contador no
+   responde, o la página está abierta en local, no pasa nada: la herramienta
+   funciona exactamente igual. La dirección la pone construir.py. */
+const CONTADOR_URL = '__CONTADOR_URL__';
+
+async function contarQRGenerados(qrs, modo) {
+  if (!CONTADOR_URL.startsWith('https://') || !estaEnWebPublica()) return;
+  try {
+    // text/plain: así el navegador no hace la consulta previa (CORS) que
+    // Apps Script no sabe contestar.
+    const respuesta = await fetch(CONTADOR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ qrs, modo }),
+    });
+    const total = await respuesta.json();
+    if (total && total.qrs > 0) {
+      const aviso = $('contador-global');
+      aviso.textContent = `Con estos, ya van ${total.qrs.toLocaleString('es-ES')} códigos QR creados con audiopapel.`;
+      aviso.hidden = false;
+    }
+  } catch (_) { /* sin contador no pasa nada */ }
 }
 
 /**

@@ -9,6 +9,15 @@ qr = open('vendor/qrcode.min.js', encoding='utf-8').read()
 jsqr = open('vendor/jsQR.js', encoding='utf-8').read()
 glue = open('vendor/codec2.js', encoding='utf-8').read()
 
+# ---------------------------------------------------------------- contador
+# Dirección del contador de QR (Google Apps Script). Vacía = desactivado.
+try:
+    contador = open('contador/url.txt', encoding='utf-8').read().strip()
+except FileNotFoundError:
+    contador = ''
+assert contador == '' or contador.startswith('https://script.google.com/'), 'contador/url.txt no parece una URL de Apps Script'
+print('contador:', contador or '(desactivado)')
+
 # ---------------------------------------------------------------- herramienta
 plantilla = open('plantilla_fuente.html', encoding='utf-8').read()
 
@@ -26,14 +35,15 @@ salida = (plantilla
           .replace('__QRCODE_JS__', qr)
           .replace('__JSQR_JS__', jsqr)
           .replace('__CODEC2_GLUE_JS__', glue)
-          .replace('__CODEC2_WASM_BASE64__', wasm))
+          .replace('__CODEC2_WASM_BASE64__', wasm)
+          .replace('__CONTADOR_URL__', contador))
 assert '__CODEC2' not in salida.replace('CODEC2_WASM_BASE64 =', '')
 
 open('audio_en_papel.html', 'w', encoding='utf-8', newline='\n').write(salida)
 print('escrito audio_en_papel.html', len(salida.encode('utf-8')), 'bytes')
 
 # ---------------------------------------------------------------- portada
-portada = open('portada_fuente.html', encoding='utf-8').read().replace('__QRCODE_JS__', qr)
+portada = open('portada_fuente.html', encoding='utf-8').read().replace('__QRCODE_JS__', qr).replace('__CONTADOR_URL__', contador)
 assert '__QRCODE_JS__' not in portada
 open('index.html', 'w', encoding='utf-8', newline='\n').write(portada)
 print('escrito index.html', len(portada.encode('utf-8')), 'bytes')

@@ -442,6 +442,7 @@
           <span>iPhone y Android</span>
           <span>Hasta 3 minutos</span>
           <span>Código visible y comentado</span>
+          <span id="contador-qr" hidden></span>
         </div>
       </div>
 
@@ -746,6 +747,22 @@ __QRCODE_JS__
    escanearlo se abre audiopapel y lee el mensaje en voz alta.
    ===================================================================== */
 const $ = (id) => document.getElementById(id);
+
+/* ---- Contador de códigos QR generados ----
+   Lee el total de la hoja de cálculo (ver contador/LEEME.md). Si no
+   responde, el sello simplemente no aparece. La dirección la pone construir.py. */
+const CONTADOR_URL = '__CONTADOR_URL__';
+if (CONTADOR_URL.startsWith('https://')) {
+  fetch(CONTADOR_URL)
+    .then(r => r.json())
+    .then(total => {
+      if (!(total && total.qrs > 0)) return;
+      const sello = document.getElementById('contador-qr');
+      sello.textContent = `${total.qrs.toLocaleString('es-ES')} códigos QR creados`;
+      sello.hidden = false;
+    })
+    .catch(() => {});
+}
 
 /* ---- Publicidad (AdSense) — DESACTIVADA ----
    ANTES DE ACTIVARLA: con anuncios la web tiene actividad económica y la LSSI
