@@ -213,6 +213,7 @@
     padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--tinta); background: transparent; color: var(--tinta); cursor: pointer;
   }
   textarea { width: 100%; min-height: 70px; font-family: var(--f-mono); font-size: .85rem; }
+  textarea.enlace-mensaje { margin-top: 8px; min-height: 90px; word-break: break-all; }
 
   button.boton {
     display: inline-flex; align-items: center; justify-content: center; gap: 9px;
@@ -419,8 +420,11 @@
         <div class="estadisticas" id="estadisticas"></div>
         <div class="fila" style="margin-top:12px">
           <button id="btn-imprimir" class="boton secundario">Imprimir</button>
+          <button id="btn-enlace-emisor" class="boton secundario">Enviar como enlace</button>
           <button id="btn-simular" class="boton secundario">Simular el escaneo (sin cámara)</button>
         </div>
+        <p id="estado-enlace-emisor" class="estado" hidden></p>
+        <textarea id="enlace-emisor" class="enlace-mensaje" readonly hidden></textarea>
         <p class="suave">Consejo: si la cámara del receptor no consigue leer los QRs, vuelve a generar con un tamaño de QR más pequeño.</p>
         <p class="suave" id="contador-global" hidden></p>
       </div>
@@ -476,6 +480,9 @@
       <h2>Mensaje reconstruido</h2>
       <p id="info-audio" class="suave"></p>
       <audio id="audio-final" controls></audio>
+      <div class="fila" style="margin-top:10px">
+        <button class="boton secundario btn-enlace-receptor">Enviar como enlace</button>
+      </div>
     </div>
 
     <div class="tarjeta" id="bloque-texto" style="display:none">
@@ -485,7 +492,13 @@
       <div class="fila" style="margin-top:10px">
         <button id="btn-hablar" class="boton">Escuchar otra vez</button>
         <button id="btn-callar" class="boton secundario">Parar</button>
+        <button class="boton secundario btn-enlace-receptor">Enviar como enlace</button>
       </div>
+    </div>
+
+    <div class="tarjeta" id="bloque-enlace-receptor" hidden>
+      <p id="estado-enlace-receptor" class="estado"></p>
+      <textarea id="enlace-receptor" class="enlace-mensaje" readonly hidden></textarea>
     </div>
 
     <div class="tarjeta">
@@ -927,6 +940,8 @@ let trozosGrabados = [];       // fragmentos que entrega MediaRecorder
 let inicioGrabacion = 0;
 let temporizador = null;
 let bloquesGenerados = [];     // [{ numero, texto }] los QRs de la última generación
+let mensajeGenerado = null;    // { bytes, codec } del último mensaje creado (para enviarlo como enlace)
+let mensajeRecibido = null;    // { bytes, codec } del último mensaje recompuesto
 
 /* ---------- Modo TEXTO: dictado con el reconocedor del navegador ----------
    SpeechRecognition es la API de dictado de Chrome/Edge/Safari (Firefox no la
@@ -1255,6 +1270,8 @@ async function procesarTexto() {
     if (!texto) throw new Error('No hay texto que guardar: dicta o escribe el mensaje.');
 
     const { clave, bytes } = await comprimirTexto(texto);
+    mensajeGenerado = { bytes, codec: clave };
+    ocultarEnlace('emisor');
     const id = generarId();
     bloquesGenerados = trocearEnBloques(bytes, id, clave, versionQR);
     pintarQRs(bloquesGenerados);
@@ -1301,6 +1318,9 @@ async function procesarAudio(blob) {
     const pcmVuelta = await descomprimirConCodec2(bytes, claveCodec);
     ponerAudio($('audio-previo'), pcmAWav(pcmVuelta, TASA_CODEC2));
     $('previsualizacion').style.display = '';
+
+    mensajeGenerado = { bytes, codec: claveCodec };
+    ocultarEnlace('emisor');
 
     // Bytes → Base32 → bloques → QRs
     const id = generarId();
@@ -1440,6 +1460,75 @@ function pintarQRs(bloques) {
 
 $('btn-imprimir').addEventListener('click', () => window.print());
 
+/* ---------- Enviar el mensaje como ENLACE ----------
+   Un QR no es más que un enlace dibujado. Un mensaje ENTERO cabe en un solo
+   enlace: es como un QR de un único bloque (1 de 1) que nunca se imprime, y
+   se puede mandar por WhatsApp, correo… Quien lo abre lo escucha en la web
+   (o en la app de Android) exactamente igual que si escaneara los QR.
+      https://audiopapel.com/audio_en_papel.html#AUDIORR2:ID:1:1:C2-1200:<todo>
+   Los datos van detrás del '#', así que tampoco llegan nunca al servidor.
+   Lleva un ID NUEVO: si alguien tenía a medias la serie de QR del mismo
+   mensaje, el enlace no se mezcla con esos bloques.
+   ------------------------------------------------------------------ */
+
+/** WhatsApp no admite mensajes más largos (Telegram corta a los 4096). */
+const MAX_CARACTERES_WHATSAPP = 65536;
+
+function enlaceDelMensaje({ bytes, codec }) {
+  return `${direccionDeEstaPagina()}#${PROTOCOLO}:${generarId()}:1:1:${codec}:${bytesABase32(bytes)}`;
+}
+
+function ocultarEnlace(lado) {
+  const caja = $('enlace-' + lado);
+  caja.hidden = true;
+  caja.value = '';
+  if (lado === 'emisor') $('estado-enlace-emisor').hidden = true;
+  else $('bloque-enlace-receptor').hidden = true;
+}
+
+async function enviarComoEnlace(mensaje, lado) {
+  if (!mensaje) return;
+  const enlace = enlaceDelMensaje(mensaje);
+  const estado = $('estado-enlace-' + lado);
+  const caja = $('enlace-' + lado);
+  if (lado === 'emisor') estado.hidden = false;
+  else $('bloque-enlace-receptor').hidden = false;
+  const tamano = `${enlace.length.toLocaleString('es-ES')} caracteres`;
+  const demasiadoLargo = enlace.length > MAX_CARACTERES_WHATSAPP;
+  const aviso = demasiadoLargo
+    ? ` Ojo: pasa de ${MAX_CARACTERES_WHATSAPP.toLocaleString('es-ES')}, el máximo de WhatsApp; por correo sí llega.`
+    : '';
+
+  // 1) En el móvil: el menú de compartir del sistema (WhatsApp, Telegram, correo…)
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Mensaje de audiopapel', url: enlace });
+      mostrarEstado(estado, `Enlace enviado (${tamano}).${aviso}`, demasiadoLargo ? 'aviso' : 'ok');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;             // el usuario cerró el menú
+      /* cualquier otro fallo: seguimos con el portapapeles */
+    }
+  }
+  // 2) En el ordenador: copiarlo al portapapeles
+  try {
+    await navigator.clipboard.writeText(enlace);
+    mostrarEstado(estado, `Enlace copiado (${tamano}). Pégalo en WhatsApp, un correo o donde quieras.${aviso}`,
+      demasiadoLargo ? 'aviso' : 'ok');
+    return;
+  } catch (_) { /* sin permiso para el portapapeles (p. ej. página abierta en local) */ }
+  // 3) Último recurso: enseñarlo para copiarlo a mano
+  caja.value = enlace;
+  caja.hidden = false;
+  caja.focus();
+  caja.select();
+  mostrarEstado(estado, `Este es el enlace (${tamano}): cópialo y pégalo donde quieras.${aviso}`, 'aviso');
+}
+
+$('btn-enlace-emisor').addEventListener('click', () => enviarComoEnlace(mensajeGenerado, 'emisor'));
+document.querySelectorAll('.btn-enlace-receptor').forEach(boton =>
+  boton.addEventListener('click', () => enviarComoEnlace(mensajeRecibido, 'receptor')));
+
 /** Manda los bloques a la pestaña 2, DESORDENADOS, como si los escaneáramos. */
 $('btn-simular').addEventListener('click', async () => {
   const desordenados = [...bloquesGenerados].sort(() => Math.random() - 0.5);
@@ -1553,6 +1642,8 @@ window.addEventListener('storage', (e) => {
 });
 
 function reiniciarRecepcion(cabecera) {
+  mensajeRecibido = null;
+  ocultarEnlace('receptor');
   recepcion.id = cabecera ? cabecera.id : null;
   recepcion.total = cabecera ? cabecera.total : 0;
   recepcion.codec = cabecera ? cabecera.codec : null;
@@ -1636,7 +1727,7 @@ function pintarPanel() {
     // el usuario toque la pantalla. Lo que pasa con el sonido lo cuenta el
     // mensaje de estado, que sí sabe si ha sonado o no.
     guia.textContent = recepcion.total === 1
-      ? '✅ ¡Mensaje completo! (1 código QR)'
+      ? '✅ ¡Mensaje completo!'
       : `✅ ¡Mensaje completo! (los ${recepcion.total} códigos QR)`;
     guia.className = 'guia completo';
   } else {
@@ -1658,6 +1749,7 @@ async function reconstruirMensaje(reproducir) {
     let datos = '';
     for (let n = 1; n <= recepcion.total; n++) datos += recepcion.bloques.get(n);
     const bytes = recepcion.codificacion === 'base32' ? base32ABytes(datos) : base64ABytes(datos);
+    mensajeRecibido = { bytes, codec: recepcion.codec };
 
     // ---- Modo TEXTO: descomprimir, mostrar y leer en voz alta ----
     if (CODECS[recepcion.codec].tipo === 'texto') {
