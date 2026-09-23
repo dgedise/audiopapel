@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>audiopapel · Mensajes de voz en códigos QR para imprimir</title>
-<meta name="description" content="Convierte un mensaje de voz en códigos QR para imprimir, pegar o regalar. Cualquier móvil lo vuelve a hacer sonar, sin apps ni cuentas. Gratis.">
+<meta name="description" content="Convierte un mensaje de voz en códigos QR para imprimir o en un enlace para WhatsApp. Cualquier móvil lo vuelve a hacer sonar, sin apps ni cuentas. Gratis.">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://audiopapel.com/">
 
@@ -14,7 +14,7 @@
 <meta property="og:locale" content="es_ES">
 <meta property="og:url" content="https://audiopapel.com/">
 <meta property="og:title" content="audiopapel · La voz, en papel">
-<meta property="og:description" content="Mensajes de voz impresos en códigos QR. Cualquier móvil los vuelve a hacer sonar, sin apps, sin cuentas y sin subir nada.">
+<meta property="og:description" content="Mensajes de voz en códigos QR o en un enlace. Cualquier móvil los vuelve a hacer sonar, sin apps, sin cuentas y sin subir nada.">
 <meta property="og:image" content="https://audiopapel.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -68,7 +68,8 @@
         "Compresión Codec 2 a 1200 o 700 bit/s",
         "Modo texto con dictado y voz sintética",
         "Códigos QR numerados que se leen en cualquier orden",
-        "Escaneo con la cámara del móvil, sin instalar nada"
+        "Escaneo con la cámara del móvil, sin instalar nada",
+        "Envío del mensaje entero en un solo enlace (WhatsApp, correo)"
       ]
     },
     {
@@ -77,11 +78,13 @@
         { "@type": "Question", "name": "¿Hay que instalar algo?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil." } },
         { "@type": "Question", "name": "¿Dónde se guarda mi voz?",
-          "acceptedAnswer": { "@type": "Answer", "text": "En el papel, y en ningún sitio más. Todo se procesa en tu dispositivo y los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía al servidor." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "En el papel (o en el enlace que envíes), y en ningún sitio más. Todo se procesa en tu dispositivo y los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía al servidor." } },
         { "@type": "Question", "name": "¿Por qué suena un poco robótica?",
           "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 1200 bits por segundo con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
         { "@type": "Question", "name": "¿Cuánto puede durar un mensaje?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Un minuto de voz ocupa unos 6 códigos QR con el tamaño recomendado." } }
+          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Un minuto de voz ocupa unos 6 códigos QR con el tamaño recomendado." } },
+        { "@type": "Question", "name": "¿Puedo mandarlo por WhatsApp?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sí. Pulsa «Enviar como enlace» al crear los códigos o después de escanearlos: el mensaje entero va dentro de un solo enlace. Tres minutos de voz ocupan unos 43.000 caracteres y WhatsApp admite hasta 65.536." } }
       ]
     }
   ]
@@ -216,6 +219,7 @@
   .menu { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
   .menu a { color: var(--tinta-2); text-decoration: none; font-size: .95rem; }
   .menu a:hover { color: var(--tinta); }
+  @media (max-width: 1040px) { .menu a.menu-extra { display: none; } }   /* que el menú quepa en una línea */
   @media (max-width: 720px) { .menu a:not(.boton) { display: none; } }
 
   .boton {
@@ -416,9 +420,10 @@
     </a>
     <nav class="menu" aria-label="Secciones">
       <a href="#como">Cómo funciona</a>
-      <a href="#ideas">Ideas</a>
-      <a href="#dentro">Por dentro</a>
-      <a href="#preguntas">Preguntas</a>
+      <a class="menu-extra" href="#ideas">Ideas</a>
+      <a href="#enlace">Por WhatsApp</a>
+      <a class="menu-extra" href="#dentro">Por dentro</a>
+      <a class="menu-extra" href="#preguntas">Preguntas</a>
       <a class="boton pequeno" data-enlace-app href="audio_en_papel.html"><span class="punto" aria-hidden="true"></span>Abrir la herramienta</a>
     </nav>
   </div>
@@ -432,7 +437,7 @@
       <div>
         <p class="etiqueta">Voz → papel → voz</p>
         <h1><span class="linea">La voz,</span> <span class="linea"><span class="subrayado">en papel.</span></span></h1>
-        <p class="entradilla">audiopapel graba un mensaje, lo comprime <strong>más de cien veces</strong> y lo reparte en códigos QR que puedes imprimir, pegar o regalar. Cualquier móvil con cámara lo vuelve a hacer sonar. <strong>Sin apps, sin cuentas y sin servidores:</strong> la voz viaja en el papel.</p>
+        <p class="entradilla">audiopapel graba un mensaje, lo comprime <strong>más de cien veces</strong> y lo reparte en códigos QR que puedes imprimir, pegar o regalar. Cualquier móvil con cámara lo vuelve a hacer sonar. <strong>Sin apps, sin cuentas y sin servidores:</strong> la voz viaja en el papel o en <strong>un enlace para WhatsApp</strong>.</p>
         <div class="acciones">
           <a class="boton" data-enlace-app href="audio_en_papel.html"><span class="punto" aria-hidden="true"></span>Grabar un mensaje</a>
           <a class="boton claro" href="#como">Cómo funciona</a>
@@ -441,6 +446,7 @@
           <span>Funciona en el navegador</span>
           <span>iPhone y Android</span>
           <span>Hasta 3 minutos</span>
+          <span>En papel o por WhatsApp</span>
           <span>Código visible y comentado</span>
           <span id="contador-qr" hidden></span>
         </div>
@@ -497,8 +503,8 @@
         </article>
         <article class="paso">
           <span class="num">2</span>
-          <h3>Imprime</h3>
-          <p>El mensaje se trocea en códigos QR numerados: «Código 2 de 6». Imprímelos, recórtalos, pégalos donde quieras o muéstralos en pantalla.</p>
+          <h3>Imprime o envía</h3>
+          <p>El mensaje se trocea en códigos QR numerados: «Código 2 de 6». Imprímelos, recórtalos, pégalos donde quieras o muéstralos en pantalla. O mándalo entero en un enlace por WhatsApp.</p>
           <code>bytes → Base32 → trozos → QR</code>
         </article>
         <article class="paso">
@@ -518,7 +524,7 @@
         <div class="cifra"><b>1.200<small>bit/s</small></b><span>lo que ocupa la voz: 150 bytes por segundo, menos que este párrafo.</span></div>
         <div class="cifra"><b>107<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
         <div class="cifra"><b>≈ 6<small>QR</small></b><span>por minuto de voz, con el tamaño de código recomendado.</span></div>
-        <div class="cifra"><b>0<small>servidores</small></b><span>tu voz no pasa por ningún ordenador ajeno. Viaja en el papel.</span></div>
+        <div class="cifra"><b>0<small>servidores</small></b><span>audiopapel no recibe tu voz: viaja en el papel o dentro del enlace.</span></div>
       </div>
     </div>
   </section>
@@ -576,6 +582,37 @@
           <span class="tipo">Tiempo</span>
           <h3>Cápsula del tiempo</h3>
           <p>Un mensaje para abrir dentro de diez años. Los datos están en el papel, no en un servidor que pueda cerrar.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= PAPEL O ENLACE ======================== -->
+  <section class="bloque" id="enlace">
+    <div class="envoltorio">
+      <div class="cabeza-bloque">
+        <p class="etiqueta">Nuevo · enviar como enlace</p>
+        <h2>Un QR es un enlace dibujado.</h2>
+        <p>Así que el mensaje entero también cabe en un enlace. Pulsa «Enviar como enlace» al crear los códigos, o después de escanearlos, y mándalo por WhatsApp o por correo. Quien lo toca lo escucha igual que si hubiera escaneado el papel. ¿Te han dado los papeles? Escanéalos y reenvíalo a quien esté lejos.</p>
+      </div>
+      <div class="modos">
+        <article class="modo">
+          <h3>En papel</h3>
+          <p class="lema">Para guardar, regalar o pegar en la pared.</p>
+          <dl>
+            <dt>Cabe</dt><dd>unos 6 códigos QR por minuto de voz</dd>
+            <dt>Se abre</dt><dd>con la cámara de cualquier móvil</dd>
+            <dt>Dura</dt><dd>lo que dure el papel</dd>
+          </dl>
+        </article>
+        <article class="modo destacado">
+          <h3>Por enlace</h3>
+          <p class="lema">Para mandarlo ahora, a quien esté lejos.</p>
+          <dl>
+            <dt>Cabe</dt><dd>tres minutos de voz en un solo enlace: unos 43.000 caracteres, y WhatsApp admite 65.536</dd>
+            <dt>Se abre</dt><dd>tocándolo, en cualquier móvil u ordenador</dd>
+            <dt>Viaja</dt><dd>dentro del propio enlace, tras el «#»: audiopapel no guarda ni recibe nada</dd>
+          </dl>
         </article>
       </div>
     </div>
@@ -689,7 +726,7 @@
         </details>
         <details>
           <summary>¿Dónde se guarda mi voz?</summary>
-          <div class="respuesta"><p>En el papel, y en ningún sitio más. La página no tiene un servidor que reciba tus grabaciones: todo se procesa en tu dispositivo. Los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía.</p><p>La única excepción es el dictado del modo texto: el reconocimiento de voz lo hace el servicio del propio navegador (Google o Apple), igual que cuando dictas en el teclado del móvil.</p></div>
+          <div class="respuesta"><p>En el papel (o en el enlace que envíes), y en ningún sitio más. La página no tiene un servidor que reciba tus grabaciones: todo se procesa en tu dispositivo. Los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía.</p><p>La única excepción es el dictado del modo texto: el reconocimiento de voz lo hace el servicio del propio navegador (Google o Apple), igual que cuando dictas en el teclado del móvil.</p></div>
         </details>
         <details>
           <summary>¿Por qué suena un poco robótica?</summary>
@@ -698,6 +735,10 @@
         <details>
           <summary>¿Cuánto puede durar un mensaje?</summary>
           <div class="respuesta"><p>Hasta tres minutos. Un minuto de voz son unos 6 códigos con el tamaño recomendado. Si usas el tamaño máximo, tres minutos caben en 14 códigos, aunque cuestan más de leer con cámaras modestas.</p></div>
+        </details>
+        <details>
+          <summary>¿Puedo mandarlo por WhatsApp?</summary>
+          <div class="respuesta"><p>Sí. Al crear los códigos, o después de escanearlos, pulsa «Enviar como enlace»: el mensaje entero va dentro de un solo enlace, listo para WhatsApp o el correo. Tres minutos de voz ocupan unos 43.000 caracteres y WhatsApp admite hasta 65.536; por correo no hay límite.</p><p>Telegram corta los mensajes a 4.096 caracteres: ahí solo caben mensajes de texto y audios de unos segundos.</p></div>
         </details>
         <details>
           <summary>¿Y si se pierde uno de los códigos?</summary>
