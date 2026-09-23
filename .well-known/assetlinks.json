@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.audiopapel.lector",
+      "sha256_cert_fingerprints": [
+        "94:DA:BC:0D:11:2D:45:20:7D:CB:19:F3:F2:F0:D9:64:B2:C8:EB:F0:44:A7:53:2A:17:E3:2E:BC:8B:D6:7D:59"
+      ]
+    }
+  }
+]
