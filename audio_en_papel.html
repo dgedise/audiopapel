@@ -320,18 +320,29 @@
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 
-  .pie { max-width: 1100px; margin: 0 auto; padding: 0 16px 36px; display: flex; flex-wrap: wrap; gap: 18px; font-size: .88rem; }
-  .pie a { color: var(--tinta-2); }
+  footer.pie { max-width: 1100px; margin: 0 auto; padding: 0 16px 36px; display: flex; flex-wrap: wrap; gap: 18px; font-size: .88rem; }
+  footer.pie a { color: var(--tinta-2); }
 
   /* ---------- Impresión: solo las tarjetas QR ---------- */
+  /* Hoja A4 con 1 cm de margen: quedan 19 × 27,7 cm útiles. */
+  @page { size: A4; margin: 10mm; }
   @media print {
     body { background: #fff; }
     header, nav, .no-imprimir, #tab-receptor { display: none !important; }
     #tab-emisor { display: block !important; }
     main { max-width: none; padding: 0; }
     .tarjeta { border: 0; box-shadow: none; padding: 0; }
-    .tarjetas-qr { grid-template-columns: repeat(2, 1fr); gap: 8mm; }
-    .tarjeta-qr { border: 1px dashed #999; box-shadow: none; page-break-inside: avoid; }
+    /* Cada QR sale a su tamaño real (--lado-impreso, lo calcula pintarQRs) y
+       se colocan en fila hasta llenar el ancho, con 6 mm de aire entre uno y
+       otro para recortarlos sin que se monte el texto. */
+    .tarjetas-qr { display: flex; flex-wrap: wrap; gap: 6mm; align-items: flex-start; }
+    .tarjeta-qr {
+      width: calc(var(--lado-impreso) + 6.6mm); padding: 3mm; border: 1px dashed #999;
+      border-radius: 0; box-shadow: none; page-break-inside: avoid; break-inside: avoid;
+    }
+    .tarjeta-qr svg { width: var(--lado-impreso); margin: 0 auto; }
+    .tarjeta-qr .titulo { font-size: 10pt; line-height: 1.2; margin-bottom: 2mm; }
+    .tarjeta-qr .pie { font-size: 6.5pt; line-height: 1.35; margin-top: 2mm; padding-top: 1.5mm; overflow-wrap: anywhere; }
   }
 </style>
 </head>
@@ -384,10 +395,10 @@
         </label>
         <label>Tamaño de cada QR
           <select id="sel-tamano">
-            <option value="23">Pequeño · QR versión 23 (fácil de leer, más QRs)</option>
-            <option value="29">Medio · QR versión 29</option>
-            <option value="35" selected>Grande · QR versión 35</option>
-            <option value="40">Máximo · QR versión 40 (difícil con webcam)</option>
+            <option value="23">Pequeño · QR versión 23 · 4,7 cm impreso (fácil de leer, más QRs)</option>
+            <option value="29">Medio · QR versión 29 · 5,6 cm impreso</option>
+            <option value="35" selected>Grande · QR versión 35 · 6,6 cm impreso</option>
+            <option value="40">Máximo · QR versión 40 · 7,4 cm impreso (difícil con webcam)</option>
           </select>
         </label>
       </div>
@@ -419,13 +430,16 @@
         <h2>2 · Códigos QR generados</h2>
         <div class="estadisticas" id="estadisticas"></div>
         <div class="fila" style="margin-top:12px">
+          <label>Tamaño de los QR
+            <select id="sel-tamano-resultado"></select>
+          </label>
           <button id="btn-imprimir" class="boton secundario">Imprimir</button>
           <button id="btn-enlace-emisor" class="boton secundario">Enviar como enlace</button>
           <button id="btn-simular" class="boton secundario">Simular el escaneo (sin cámara)</button>
         </div>
         <p id="estado-enlace-emisor" class="estado" hidden></p>
         <textarea id="enlace-emisor" class="enlace-mensaje" readonly hidden></textarea>
-        <p class="suave">Consejo: si la cámara del receptor no consigue leer los QRs, vuelve a generar con un tamaño de QR más pequeño.</p>
+        <p class="suave">Consejo: si la cámara del receptor no consigue leer los QRs, elige un tamaño más pequeño: se vuelven a generar al momento. Al imprimir, cada QR sale del tamaño que indica el desplegable, para que se lea bien desde el papel.</p>
         <p class="suave" id="contador-global" hidden></p>
       </div>
       <div id="tarjetas-qr" class="tarjetas-qr" style="margin-top:12px"></div>
@@ -482,6 +496,7 @@
       <audio id="audio-final" controls></audio>
       <div class="fila" style="margin-top:10px">
         <button class="boton secundario btn-enlace-receptor">Enviar como enlace</button>
+        <button class="boton secundario btn-qr-receptor">Pasarlo a QR para imprimir</button>
       </div>
     </div>
 
@@ -493,6 +508,7 @@
         <button id="btn-hablar" class="boton">Escuchar otra vez</button>
         <button id="btn-callar" class="boton secundario">Parar</button>
         <button class="boton secundario btn-enlace-receptor">Enviar como enlace</button>
+        <button class="boton secundario btn-qr-receptor">Pasarlo a QR para imprimir</button>
       </div>
     </div>
 
@@ -1431,6 +1447,22 @@ function trocearEnBloques(bytes, id, claveCodec, versionQR) {
   return bloques;
 }
 
+/* ---------- Tamaño al imprimir ----------
+   Lo que decide si un QR se puede leer desde el papel no es lo que mide
+   entero, sino cada cuadradito (el "módulo"). Se suele recomendar un mínimo
+   de 0,3 mm; usamos 0,4 mm para que lo lean también cámaras modestas. Por
+   eso cada versión sale de un tamaño distinto: cuantos más módulos, mayor.
+       versión 23 ≈ 4,7 cm · 29 ≈ 5,6 cm · 35 ≈ 6,6 cm · 40 ≈ 7,4 cm
+   (con el margen blanco). En un A4 caben unos 9, 6, 6 y 4 códigos.
+   ------------------------------------------------------------------ */
+const MODULO_IMPRESO_MM = 0.4;
+const MARGEN_QR = 4;                   // módulos blancos alrededor (lo exige el estándar)
+
+/** Lado del QR impreso, en mm. Una versión v tiene 17 + 4·v módulos por lado. */
+function ladoImpresoMm(version) {
+  return (17 + 4 * version + 2 * MARGEN_QR) * MODULO_IMPRESO_MM;
+}
+
 /** Dibuja la lista de tarjetas con su QR (SVG, se imprime nítido). */
 function pintarQRs(bloques) {
   const contenedor = $('tarjetas-qr');
@@ -1443,16 +1475,19 @@ function pintarQRs(bloques) {
     qr.make();
     // El ID lo guardamos aparte al trocear: sacarlo partiendo el texto por
     // ':' falla en cuanto el QR empieza por "https:".
+    const version = (qr.getModuleCount() - 21) / 4 + 1;
+    const lado = ladoImpresoMm(version);
     const tarjeta = document.createElement('div');
     tarjeta.className = 'tarjeta-qr';
+    tarjeta.style.setProperty('--lado-impreso', lado.toFixed(1) + 'mm');
     const titulo = document.createElement('div');
     titulo.className = 'titulo';
     titulo.textContent = `Código ${b.numero} de ${b.total}`;
     const pie = document.createElement('div');
     pie.className = 'pie';
-    pie.textContent = `ID ${b.id} · ${b.texto.length} caracteres · QR versión ${(qr.getModuleCount() - 21) / 4 + 1}`;
+    pie.textContent = `ID ${b.id} · ${b.texto.length} caracteres · QR versión ${version} · ${(lado / 10).toFixed(1).replace('.', ',')} cm`;
     tarjeta.appendChild(titulo);
-    tarjeta.insertAdjacentHTML('beforeend', qr.createSvgTag({ cellSize: 2, margin: 4, scalable: true }));
+    tarjeta.insertAdjacentHTML('beforeend', qr.createSvgTag({ cellSize: 2, margin: MARGEN_QR, scalable: true }));
     tarjeta.appendChild(pie);
     contenedor.appendChild(tarjeta);
   }
@@ -1526,6 +1561,66 @@ async function enviarComoEnlace(mensaje, lado) {
 }
 
 $('btn-enlace-emisor').addEventListener('click', () => enviarComoEnlace(mensajeGenerado, 'emisor'));
+
+/* ---------- Del enlace al papel ----------
+   El camino de vuelta: un mensaje recibido (por QR o por un enlace de
+   WhatsApp) se puede volver a convertir en QR para imprimirlo. Se generan
+   en la pestaña «Grabar y crear QR», que es la que se imprime, con el tamaño
+   elegido allí y un ID nuevo, igual que si lo hubieras grabado tú.
+   ------------------------------------------------------------------ */
+function pasarMensajeRecibidoAQR() {
+  if (!mensajeRecibido) return;
+  const { bytes, codec } = mensajeRecibido;
+  const id = generarId();
+  bloquesGenerados = trocearEnBloques(bytes, id, codec, parseInt($('sel-tamano').value, 10));
+  mensajeGenerado = mensajeRecibido;              // «Enviar como enlace» también sirve desde ahí
+  ocultarEnlace('emisor');
+  pintarQRs(bloquesGenerados);
+  contarQRGenerados(bloquesGenerados.length, CODECS[codec].tipo);
+
+  // Codec 2 guarda una trama de 40 ms en 6 bytes (1200 bit/s) o en 4 (700 bit/s).
+  const contenido = CODECS[codec].tipo === 'audio'
+    ? ['Duración', formatoTiempo(bytes.length / (codec === 'C2-700' ? 4 : 6) * 0.04)]
+    : ['Palabras', $('texto-recibido').textContent.trim().split(/\s+/).length];
+  $('estadisticas').innerHTML = [
+    ['Origen', 'Recibido'],
+    contenido,
+    [CODECS[codec].tipo === 'audio' ? 'Codec 2' : 'Comprimido', bytes.length + ' B'],
+    ['Códigos QR', bloquesGenerados.length],
+  ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('previsualizacion').style.display = 'none';  // era de la última grabación propia, no de este mensaje
+  $('bloque-resultado').style.display = '';
+
+  cambiarPestana('emisor');
+  mostrarEstado($('estado-emisor'), `Mensaje recibido pasado a papel: ${bloquesGenerados.length} código(s) QR (ID ${id}). Elige el tamaño y pulsa «Imprimir».`, 'ok');
+  $('bloque-resultado').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.querySelectorAll('.btn-qr-receptor').forEach(boton =>
+  boton.addEventListener('click', pasarMensajeRecibidoAQR));
+
+/* ---------- Cambiar el tamaño de los QR ya generados ----------
+   Hay dos desplegables de tamaño (arriba, al grabar, y junto a «Imprimir»)
+   y van siempre a la par. Como el último mensaje está guardado en bytes, al
+   cambiar el tamaño se vuelve a trocear al momento, sin grabar de nuevo.
+   Lleva un ID nuevo: son otros trozos, no deben mezclarse con los de antes. */
+$('sel-tamano-resultado').innerHTML = $('sel-tamano').innerHTML;
+$('sel-tamano-resultado').value = $('sel-tamano').value;
+
+function cambiarTamanoQR(version) {
+  $('sel-tamano').value = version;
+  $('sel-tamano-resultado').value = version;
+  if (!mensajeGenerado || $('bloque-resultado').style.display === 'none') return;
+  const id = generarId();
+  bloquesGenerados = trocearEnBloques(mensajeGenerado.bytes, id, mensajeGenerado.codec, parseInt(version, 10));
+  pintarQRs(bloquesGenerados);
+  for (const dato of $('estadisticas').children) {
+    if (dato.querySelector('span')?.textContent === 'Códigos QR') dato.querySelector('b').textContent = bloquesGenerados.length;
+  }
+  mostrarEstado($('estado-emisor'), `Nuevo tamaño: ${bloquesGenerados.length} código(s) QR (ID ${id}). Pulsa «Imprimir».`, 'ok');
+}
+$('sel-tamano').addEventListener('change', (e) => cambiarTamanoQR(e.target.value));
+$('sel-tamano-resultado').addEventListener('change', (e) => cambiarTamanoQR(e.target.value));
 document.querySelectorAll('.btn-enlace-receptor').forEach(boton =>
   boton.addEventListener('click', () => enviarComoEnlace(mensajeRecibido, 'receptor')));
 
