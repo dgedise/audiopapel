@@ -758,7 +758,7 @@ const $ = (id) => document.getElementById(id);
 /* ---- Contador de códigos QR generados ----
    Lee el total de la hoja de cálculo (ver contador/LEEME.md). Si no
    responde, el sello simplemente no aparece. La dirección la pone construir.py. */
-const CONTADOR_URL = '';
+const CONTADOR_URL = 'https://script.google.com/macros/s/AKfycbwjiKoenS2PGj3epWYFZciF_xdheO45CoR0urt77Spe7Y6yLpj8A0zsntK1VGkz2j0/exec';
 if (CONTADOR_URL.startsWith('https://')) {
   fetch(CONTADOR_URL)
     .then(r => r.json())

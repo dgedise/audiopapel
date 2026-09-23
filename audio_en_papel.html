@@ -1362,7 +1362,7 @@ function direccionDeEstaPagina() {
    más: ni la voz, ni el texto, ni el contenido de los QR. Si el contador no
    responde, o la página está abierta en local, no pasa nada: la herramienta
    funciona exactamente igual. La dirección la pone construir.py. */
-const CONTADOR_URL = '';
+const CONTADOR_URL = 'https://script.google.com/macros/s/AKfycbwjiKoenS2PGj3epWYFZciF_xdheO45CoR0urt77Spe7Y6yLpj8A0zsntK1VGkz2j0/exec';
 
 async function contarQRGenerados(qrs, modo) {
   if (!CONTADOR_URL.startsWith('https://') || !estaEnWebPublica()) return;
