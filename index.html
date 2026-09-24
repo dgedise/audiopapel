@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<!-- Los QR llevan la dirección corta HTTPS://AUDIOPAPEL.COM/#AP3:… (cabe en
-     el modo alfanumérico del QR y deja más sitio para la voz). Llegan aquí,
-     a la portada: los pasamos a la herramienta con el mensaje intacto antes
-     de que se cargue nada más. replace() no deja la portada en el historial. -->
+<!-- Los QR llevan la dirección corta https://audiopapel.com/#AP3:… (deja
+     más sitio para la voz que la dirección completa). Llegan aquí, a la
+     portada: los pasamos a la herramienta con el mensaje intacto antes de
+     que se cargue nada más. replace() no deja la portada en el historial. -->
 <script>
   if (/^#(AP3|AUDIORR2?):/.test(location.hash)) location.replace('audio_en_papel.html' + location.hash);
 </script>

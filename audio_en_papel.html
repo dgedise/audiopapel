@@ -68,9 +68,8 @@
         Los QR se generan con la versión 3. Un QR puede partir su contenido
         en TRAMOS, cada uno en el modo que más le convenga, y aprovechamos eso
         al máximo:
-           HTTPS://AUDIOPAPEL.COM/   modo alfanumérico (5,5 bits por carácter)
-           #                         modo byte (el '#' no existe en los otros)
-           AP3:ID:N:TOTAL:CODEC:     modo alfanumérico
+           https://audiopapel.com/#  modo byte (8 bits por carácter)
+           AP3:ID:N:TOTAL:CODEC:     modo alfanumérico (5,5 bits por carácter)
            0482915…                  modo NUMÉRICO (3,33 bits por cifra)
         La dirección corta lleva a la portada, que reenvía a la herramienta.
         CODEC va abreviado: 12 = C2-1200, 7 = C2-700, Z = TXT-Z, T = TXT.
@@ -1518,24 +1517,21 @@ async function contarQRGenerados(qrs, modo) {
 }
 
 /**
- * Tramos del QR que van ANTES de la cabecera: la dirección y el '#'.
+ * Tramo del QR que va ANTES de la cabecera: la dirección y el '#'.
  * Para gastar poco, el QR no lleva la dirección completa de la herramienta
- * (https://audiopapel.com/audio_en_papel.html, 43 caracteres en modo Byte)
- * sino la de la CARPETA en mayúsculas, que cabe en el modo alfanumérico:
- *     HTTPS://AUDIOPAPEL.COM/
- * El protocolo y el dominio no distinguen mayúsculas, así que es la misma
- * dirección. Abre la portada (index.html), y la portada, al ver "#AP3:",
- * reenvía a la herramienta. En un servidor de pruebas con carpeta (por
- * ejemplo /AUDIOPAPEL/) esto exige que el servidor no distinga mayúsculas
- * en las rutas, como IIS. Si la dirección tuviera algún carácter que el
- * modo alfanumérico no admite, usamos la dirección completa en modo Byte.
- * El '#' tampoco existe en el alfanumérico: va solo, en un tramo Byte.
+ * (https://audiopapel.com/audio_en_papel.html, 43 caracteres) sino la de
+ * la CARPETA, que abre la portada (index.html); la portada, al ver "#AP3:",
+ * reenvía a la herramienta:
+ *     https://audiopapel.com/#
+ * Va en MINÚSCULAS y en modo Byte a propósito. En mayúsculas cabría en el
+ * modo alfanumérico y ahorraría unos 5 bytes por QR, pero Android compara
+ * el esquema y el dominio de un enlace distinguiendo mayúsculas: una cámara
+ * que pasara "HTTPS://AUDIOPAPEL.COM/" tal cual no abriría la app, y quizá
+ * tampoco algún navegador. No vale la pena el riesgo por 0,05 s de voz.
  */
 function tramosDeLaDireccion() {
   const pagina = new URL(direccionDeEstaPagina());
-  const carpeta = (pagina.origin + pagina.pathname.replace(/[^/]*$/, '')).toUpperCase();
-  if (/^[0-9A-Z $%*+\-./:]+$/.test(carpeta)) return [[carpeta, 'Alphanumeric'], ['#', 'Byte']];
-  return [[pagina.href.split('#')[0] + '#', 'Byte']];
+  return [[pagina.origin + pagina.pathname.replace(/[^/]*$/, '') + '#', 'Byte']];
 }
 
 /**
