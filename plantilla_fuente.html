@@ -62,12 +62,21 @@
          texto → inflate → mostrar en pantalla → voz sintética
 
    PROTOCOLO (una línea de texto dentro de cada QR)
+      AP3:[ID]:[BLOQUE]:[TOTAL]:[CODEC]:[DATOS_EN_CIFRAS]        ← versión 3
       AUDIORR2:[ID]:[BLOQUE]:[TOTAL]:[CODEC]:[DATOS_BASE32]      ← versión 2
       AUDIORR:[ID]:[BLOQUE]:[TOTAL]:[CODEC]:[DATOS_BASE64]       ← versión 1
-        La versión 2 es la que genera esta aplicación: todo en MAYÚSCULAS,
-        cifras y ':', para que el QR use su modo ALFANUMÉRICO, que guarda
-        cada carácter en 5,5 bits en vez de 8. Cabe un 22 % más de voz por
-        QR. La versión 1 se sigue leyendo, para no inutilizar lo ya impreso.
+        Los QR se generan con la versión 3. Un QR puede partir su contenido
+        en TRAMOS, cada uno en el modo que más le convenga, y aprovechamos eso
+        al máximo:
+           HTTPS://AUDIOPAPEL.COM/   modo alfanumérico (5,5 bits por carácter)
+           #                         modo byte (el '#' no existe en los otros)
+           AP3:ID:N:TOTAL:CODEC:     modo alfanumérico
+           0482915…                  modo NUMÉRICO (3,33 bits por cifra)
+        La dirección corta lleva a la portada, que reenvía a la herramienta.
+        CODEC va abreviado: 12 = C2-1200, 7 = C2-700, Z = TXT-Z, T = TXT.
+        Los enlaces para WhatsApp siguen saliendo en versión 2 (más cortos
+        en caracteres). Las versiones 1 y 2 se siguen leyendo, para no
+        inutilizar lo ya impreso.
         ID      6 caracteres aleatorios: identifica el mensaje. Si el receptor
                 ve un ID nuevo, olvida lo anterior y empieza de cero.
         BLOQUE  número de este trozo, empezando en 1.
@@ -75,7 +84,8 @@
         CODEC   con qué descomprimir los bytes:
                   "C2-1200" / "C2-700"  → audio comprimido con Codec 2
                   "TXT-Z" / "TXT"       → texto (comprimido con deflate o plano)
-        DATOS   el trozo de mensaje comprimido: Base32 (v2) o Base64 (v1).
+        DATOS   el trozo de mensaje comprimido: cifras (v3), Base32 (v2)
+                o Base64 (v1).
 
    ESTE ARCHIVO ES AUTOSUFICIENTE: no necesita Internet.  Al final del
    archivo van incrustadas las tres librerías que usa:
@@ -388,17 +398,19 @@
       <div class="fila" style="margin-top:12px">
         <label>Códec de voz
           <select id="sel-codec">
-            <option value="C2-1200" selected>Audio · Codec 2 1200 bit/s (mejor calidad)</option>
-            <option value="C2-700">Audio · Codec 2 700 bit/s (menos QRs)</option>
+            <option value="C2-1200">Audio · Codec 2 1200 bit/s (mejor calidad)</option>
+            <option value="C2-700" selected>Audio · Codec 2 700 bit/s (menos QRs)</option>
             <option value="TXT-Z">Texto · dictado + voz sintética (1 solo QR)</option>
           </select>
         </label>
         <label>Tamaño de cada QR
+          <!-- Los segundos de voz por QR los añade actualizarEtiquetasTamano()
+               según el códec elegido. data-nota va al final, entre paréntesis. -->
           <select id="sel-tamano">
-            <option value="23">Pequeño · QR versión 23 · 4,7 cm impreso (fácil de leer, más QRs)</option>
+            <option value="23" data-nota="fácil de leer, más QRs">Pequeño · QR versión 23 · 4,7 cm impreso</option>
             <option value="29">Medio · QR versión 29 · 5,6 cm impreso</option>
-            <option value="35" selected>Grande · QR versión 35 · 6,6 cm impreso</option>
-            <option value="40">Máximo · QR versión 40 · 7,4 cm impreso (difícil con webcam)</option>
+            <option value="35">Grande · QR versión 35 · 6,6 cm impreso</option>
+            <option value="40" data-nota="difícil con webcam" selected>Máximo · QR versión 40 · 7,4 cm impreso</option>
           </select>
         </label>
       </div>
@@ -551,8 +563,10 @@
  * Hay dos versiones del protocolo y el receptor entiende las dos; cada una
  * dice cómo vienen escritos los datos y cómo comprobar que están bien.
  */
-const PROTOCOLO = 'AUDIORR2';                      // la que generamos
+const PROTOCOLO = 'AP3';                           // la de los QR que generamos
+const PROTOCOLO_ENLACE = 'AUDIORR2';               // la de «Enviar como enlace»
 const VERSIONES_PROTOCOLO = {
+  'AP3':      { codificacion: 'numerico', patron: /^[0-9]+$/, codecAbreviado: true },
   'AUDIORR2': { codificacion: 'base32', patron: /^[A-Z2-7]+$/ },
   'AUDIORR':  { codificacion: 'base64', patron: /^[A-Za-z0-9+/]+=*$/ },
 };
@@ -570,11 +584,16 @@ const TASA_CODEC2 = 8000;
  * Los de texto no llevan modo: el dato es la frase comprimida con deflate.
  */
 const CODECS = {
-  'C2-1200': { tipo: 'audio', modo: 5, bps: 1200, etiqueta: 'Codec 2 · 1200 bit/s' },
-  'C2-700':  { tipo: 'audio', modo: 8, bps: 700,  etiqueta: 'Codec 2 · 700 bit/s'  },
-  'TXT-Z':   { tipo: 'texto', etiqueta: 'Texto comprimido (deflate) + voz sintética' },
-  'TXT':     { tipo: 'texto', etiqueta: 'Texto plano + voz sintética' },
+  'C2-1200': { tipo: 'audio', modo: 5, bps: 1200, bytesPorSegundo: 150, corto: '12', etiqueta: 'Codec 2 · 1200 bit/s' },
+  'C2-700':  { tipo: 'audio', modo: 8, bps: 700,  bytesPorSegundo: 100, corto: '7',  etiqueta: 'Codec 2 · 700 bit/s'  },
+  'TXT-Z':   { tipo: 'texto', corto: 'Z', etiqueta: 'Texto comprimido (deflate) + voz sintética' },
+  'TXT':     { tipo: 'texto', corto: 'T', etiqueta: 'Texto plano + voz sintética' },
 };
+// bytesPorSegundo: 25 tramas por segundo × 6 bytes (1200) o × 4 bytes (700:
+// sus 28 bits por trama ocupan 4 bytes enteros).
+
+/** Nombre abreviado de la cabecera v3 ("7") → clave del códec ("C2-700"). */
+const CODEC_POR_ABREVIATURA = Object.fromEntries(Object.entries(CODECS).map(([clave, c]) => [c.corto, clave]));
 
 /** Idioma del dictado y de la voz sintética. */
 const IDIOMA = 'es-ES';
@@ -668,7 +687,7 @@ async function descomprimirConCodec2(bytes, claveCodec) {
 }
 
 /* =====================================================================
-   2 · UTILIDADES: Base32/Base64, capacidad del QR, WAV, audio
+   2 · UTILIDADES: Base32/cifras/Base64, capacidad del QR, WAV, audio
    ===================================================================== */
 
 /* ---------------------------------------------------------------------
@@ -722,41 +741,112 @@ function base32ABytes(texto) {
 }
 
 /* ---------------------------------------------------------------------
+   DATOS EN CIFRAS: el modo NUMÉRICO del QR (versión 3 del protocolo)
+   ---------------------------------------------------------------------
+   El modo numérico solo admite 0-9, pero mete 3 cifras en 10 bits: 3,33
+   bits por cifra, casi sin desperdicio (una cifra "vale" log2(10) = 3,32).
+   Para escribir bytes con cifras juntamos 22 bytes (un número de 176 bits)
+   y lo escribimos en decimal: salen 53 cifras (10⁵³ > 2¹⁷⁶).
+       Base32 en modo alfanumérico: 1 byte → 1,60 car. × 5,5  = 8,80 bits
+       Cifras en modo numérico    : 1 byte → 2,41 cif. × 3,33 = 8,05 bits
+       Binario en modo byte       : 1 byte →                    8,00 bits
+   Casi como meter los bytes a pelo, pero en un enlace que cualquier cámara
+   entiende: solo cifras, nada que un navegador pueda malinterpretar.
+   Un trozo final más corto (m bytes) ocupa las cifras justas para escribir
+   256^m − 1; cada m da una longitud distinta, así que el lector sabe
+   cuántos bytes eran. Si una longitud no cuadra, al QR le falta un trozo.
+   Los números de 176 bits no caben en un Number de JavaScript: usamos
+   BigInt (enteros de tamaño ilimitado, se escriben con 'n' al final).
+   --------------------------------------------------------------------- */
+const BYTES_POR_TROZO = 22;
+
+/** Cifras necesarias para m bytes: las que tiene 256^m − 1 escrito en decimal. */
+const CIFRAS_PARA_BYTES = Array.from({ length: BYTES_POR_TROZO + 1 },
+  (_, m) => m === 0 ? 0 : (256n ** BigInt(m) - 1n).toString().length);
+const CIFRAS_POR_TROZO = CIFRAS_PARA_BYTES[BYTES_POR_TROZO];          // 53
+
+/** Uint8Array → texto de cifras. */
+function bytesACifras(bytes) {
+  let salida = '';
+  for (let i = 0; i < bytes.length; i += BYTES_POR_TROZO) {
+    const trozo = bytes.subarray(i, i + BYTES_POR_TROZO);
+    let n = 0n;
+    for (const b of trozo) n = n * 256n + BigInt(b);
+    salida += n.toString().padStart(CIFRAS_PARA_BYTES[trozo.length], '0');
+  }
+  return salida;
+}
+
+/** Texto de cifras → Uint8Array. */
+function cifrasABytes(texto) {
+  const resto = texto.length % CIFRAS_POR_TROZO;
+  const bytesResto = resto === 0 ? 0 : CIFRAS_PARA_BYTES.indexOf(resto);
+  if (bytesResto < 0) throw new Error('Datos cortados: la longitud no cuadra.');
+  const bytes = new Uint8Array(Math.floor(texto.length / CIFRAS_POR_TROZO) * BYTES_POR_TROZO + bytesResto);
+  let j = 0;
+  for (let i = 0; i < texto.length; i += CIFRAS_POR_TROZO) {
+    const cifras = texto.slice(i, i + CIFRAS_POR_TROZO);
+    const m = cifras.length === CIFRAS_POR_TROZO ? BYTES_POR_TROZO : bytesResto;
+    let n = BigInt(cifras);
+    if (n >= 256n ** BigInt(m)) throw new Error('Datos no válidos.');
+    for (let k = m - 1; k >= 0; k--) { bytes[j + k] = Number(n & 255n); n >>= 8n; }
+    j += m;
+  }
+  return bytes;
+}
+
+/** ¿Es posible esta cantidad de cifras en un bloque? (los intermedios van con trozos enteros) */
+function longitudCifrasValida(longitud, esElUltimo) {
+  const resto = longitud % CIFRAS_POR_TROZO;
+  return resto === 0 || (esElUltimo && CIFRAS_PARA_BYTES.includes(resto));
+}
+
+/** Texto de los QR → bytes, según la codificación que anuncia la cabecera. */
+const DECODIFICADORES = { numerico: cifrasABytes, base32: base32ABytes, base64: base64ABytes };
+
+/* ---------------------------------------------------------------------
    ¿CUÁNTO CABE EN UN QR?  (cuentas del estándar ISO/IEC 18004)
    ---------------------------------------------------------------------
-   Cada versión de QR, con corrección de errores M, tiene un número fijo de
-   "palabras" de datos de 8 bits. Cada tramo de texto gasta:
+   Cada versión de QR, según su nivel de corrección de errores, tiene un
+   número fijo de "palabras" de datos de 8 bits. Cada tramo gasta:
        4 bits de modo + un contador de longitud + los caracteres.
-   Con eso calculamos exactamente cuántos caracteres de datos caben, en vez
-   de ir probando: así cada QR se llena hasta el último carácter.
+   Con eso calculamos exactamente cuántas cifras de datos caben, en vez de
+   ir probando: así cada QR se llena hasta la última cifra.
+   NIVEL DE CORRECCIÓN L: el QR guarda copias "de repuesto" (Reed-Solomon)
+   para leerse aunque le falte un trozo. Usamos L, que recupera ~7 % del
+   código. M recuperaría ~15 %, pero con L cabe un 27 % más de voz (en la
+   versión 40: 2.956 palabras frente a 2.334). El lector no necesita saber
+   cuál se usó: el propio QR lo lleva escrito junto a las esquinas.
    --------------------------------------------------------------------- */
-const PALABRAS_DATOS_M = [16, 28, 44, 64, 86, 108, 124, 154, 182, 216, 254, 290, 334, 365,
-  415, 453, 507, 563, 627, 669, 714, 782, 860, 914, 1000, 1062, 1128, 1193, 1267, 1373, 1455,
-  1541, 1631, 1725, 1812, 1914, 1992, 2102, 2216, 2334];
+const CORRECCION = 'L';
+const PALABRAS_DATOS_L = [19, 34, 55, 80, 108, 136, 156, 194, 232, 274, 324, 370, 428, 461,
+  523, 589, 647, 721, 795, 861, 932, 1006, 1094, 1174, 1276, 1370, 1468, 1531, 1631, 1735,
+  1843, 1955, 2071, 2191, 2306, 2434, 2566, 2702, 2812, 2956];
 
-/** Bits de un tramo en modo Byte (la URL). */
-function bitsModoByte(longitud, version) {
-  return 4 + (version < 10 ? 8 : 16) + 8 * longitud;
+/** Bits que ocupa un tramo de "longitud" caracteres en ese modo y versión. */
+function bitsTramo(modo, longitud, version) {
+  const grupo = version < 10 ? 0 : version < 27 ? 1 : 2;       // el contador crece con la versión
+  switch (modo) {
+    case 'Numeric':      return 4 + [10, 12, 14][grupo] + 10 * Math.floor(longitud / 3) + [0, 4, 7][longitud % 3];
+    case 'Alphanumeric': return 4 + [9, 11, 13][grupo] + 11 * Math.floor(longitud / 2) + 6 * (longitud % 2);
+    default:             return 4 + [8, 16, 16][grupo] + 8 * longitud;              // 'Byte'
+  }
 }
 
-/** Bits de un tramo en modo alfanumérico (cabecera + datos). */
-function bitsModoAlfanumerico(longitud, version) {
-  const contador = version < 10 ? 9 : version < 27 ? 11 : 13;
-  return 4 + contador + 11 * Math.floor(longitud / 2) + 6 * (longitud % 2);
-}
-
-/** Máximo de caracteres alfanuméricos que caben tras la URL en esa versión. */
-function capacidadAlfanumerica(version, prefijo) {
-  const disponibles = PALABRAS_DATOS_M[version - 1] * 8
-    - (prefijo ? bitsModoByte(new TextEncoder().encode(prefijo).length, version) : 0);
+/** Máximo de cifras que caben en esa versión detrás de los tramos fijos (dirección + cabecera). */
+function capacidadCifras(version, tramosFijos) {
+  let disponibles = PALABRAS_DATOS_L[version - 1] * 8;
+  for (const [texto, modo] of tramosFijos) {
+    disponibles -= bitsTramo(modo, new TextEncoder().encode(texto).length, version);
+  }
   let n = 0;
-  while (bitsModoAlfanumerico(n + 1, version) <= disponibles) n++;
+  while (bitsTramo('Numeric', n + 1, version) <= disponibles) n++;
   return n;
 }
 
 /**
  * Texto Base64 → Uint8Array. Solo hace falta para LEER los QR de la
- * versión 1 del protocolo; los nuevos se escriben en Base32.
+ * versión 1 del protocolo; los nuevos se escriben en cifras (y Base32).
  */
 function base64ABytes(b64) {
   const binario = atob(b64);
@@ -1208,7 +1298,7 @@ function pararDictado() {
   $('btn-grabar').classList.remove('grabando');
 }
 
-$('sel-codec').addEventListener('change', () => { pararDictado(); actualizarModo(); });
+$('sel-codec').addEventListener('change', () => { pararDictado(); actualizarModo(); actualizarEtiquetasTamano(); });
 $('texto-mensaje').addEventListener('input', actualizarCuentaTexto);
 $('btn-probar-voz').addEventListener('click', () => {
   const t = $('texto-mensaje').value.trim();
@@ -1307,7 +1397,7 @@ async function procesarTexto() {
       ['Palabras', palabras],
       ['Texto', crudo + ' B'],
       ['Comprimido', bytes.length + ' B'],
-      ['Base32', bytesABase32(bytes).length + ' car.'],
+      ['Cifras', bytesACifras(bytes).length],
       ['Compresión', (crudo / bytes.length).toFixed(1) + ' : 1'],
       ['Códigos QR', bloquesGenerados.length],
     ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
@@ -1346,7 +1436,7 @@ async function procesarAudio(blob) {
     mensajeGenerado = { bytes, codec: claveCodec };
     ocultarEnlace('emisor');
 
-    // Bytes → Base32 → bloques → QRs
+    // Bytes → cifras → bloques → QRs
     const id = generarId();
     bloquesGenerados = trocearEnBloques(bytes, id, claveCodec, versionQR);
     pintarQRs(bloquesGenerados);
@@ -1358,7 +1448,7 @@ async function procesarAudio(blob) {
       ['Duración', formatoTiempo(duracion)],
       ['PCM 8 kHz', (bytesPcm / 1024).toFixed(1) + ' KB'],
       ['Codec 2', (bytes.length / 1024).toFixed(1) + ' KB'],
-      ['Base32', (bytesABase32(bytes).length / 1024).toFixed(1) + ' KB'],
+      ['Cifras', (bytesACifras(bytes).length / 1000).toFixed(1) + ' mil'],
       ['Compresión', (bytesPcm / bytes.length).toFixed(0) + ' : 1'],
       ['Códigos QR', bloquesGenerados.length],
     ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
@@ -1428,31 +1518,68 @@ async function contarQRGenerados(qrs, modo) {
 }
 
 /**
- * Pasa los bytes a Base32, los parte en bloques y les pone la cabecera.
+ * Tramos del QR que van ANTES de la cabecera: la dirección y el '#'.
+ * Para gastar poco, el QR no lleva la dirección completa de la herramienta
+ * (https://audiopapel.com/audio_en_papel.html, 43 caracteres en modo Byte)
+ * sino la de la CARPETA en mayúsculas, que cabe en el modo alfanumérico:
+ *     HTTPS://AUDIOPAPEL.COM/
+ * El protocolo y el dominio no distinguen mayúsculas, así que es la misma
+ * dirección. Abre la portada (index.html), y la portada, al ver "#AP3:",
+ * reenvía a la herramienta. En un servidor de pruebas con carpeta (por
+ * ejemplo /AUDIOPAPEL/) esto exige que el servidor no distinga mayúsculas
+ * en las rutas, como IIS. Si la dirección tuviera algún carácter que el
+ * modo alfanumérico no admite, usamos la dirección completa en modo Byte.
+ * El '#' tampoco existe en el alfanumérico: va solo, en un tramo Byte.
+ */
+function tramosDeLaDireccion() {
+  const pagina = new URL(direccionDeEstaPagina());
+  const carpeta = (pagina.origin + pagina.pathname.replace(/[^/]*$/, '')).toUpperCase();
+  if (/^[0-9A-Z $%*+\-./:]+$/.test(carpeta)) return [[carpeta, 'Alphanumeric'], ['#', 'Byte']];
+  return [[pagina.href.split('#')[0] + '#', 'Byte']];
+}
+
+/**
+ * Pasa los bytes a cifras, los parte en bloques y les pone la cabecera.
  * "versionQR" es el tamaño de QR elegido (23, 29, 35 ó 40): calculamos
- * cuántos caracteres de datos caben en esa versión después de la URL y la
- * cabecera (con 3 dígitos para bloque y total, el peor caso) y llenamos
- * cada QR hasta ahí. Cada bloque guarda aparte:
- *   · prefijo: la URL, que irá en modo Byte (lleva minúsculas);
- *   · carga:   cabecera + datos, que irá en modo alfanumérico.
+ * cuántas cifras caben en esa versión después de la dirección y la cabecera
+ * y llenamos cada QR hasta ahí. Cada bloque guarda sus TRAMOS, cada uno con
+ * su modo, para que pintarQRs los meta tal cual en el QR:
+ *     dirección (alfanumérico) · '#' (byte) · cabecera (alfanumérico) · datos (numérico)
  */
 function trocearEnBloques(bytes, id, claveCodec, versionQR) {
   // Cada QR es un ENLACE a la herramienta y los datos viajan detrás del '#'.
   // Lo que va tras el '#' (el "fragmento") no se envía nunca al servidor: se
   // queda en el navegador, así que el mensaje sigue siendo privado y no hay
   // límite de longitud por parte del servidor.
-  const prefijo = direccionDeEstaPagina() + '#';
-  const datosBase32 = bytesABase32(bytes);
-  const cabeceraPeorCaso = `${PROTOCOLO}:${id}:999:999:${claveCodec}:`.length;
-  const datosPorBloque = Math.max(50, capacidadAlfanumerica(versionQR, prefijo) - cabeceraPeorCaso);
-  const total = Math.ceil(datosBase32.length / datosPorBloque);
-  const bloques = [];
-  for (let n = 1; n <= total; n++) {
-    const datos = datosBase32.slice((n - 1) * datosPorBloque, n * datosPorBloque);
-    const carga = `${PROTOCOLO}:${id}:${n}:${total}:${claveCodec}:${datos}`;
-    bloques.push({ id, numero: n, total, prefijo, carga, texto: prefijo + carga });
+  const direccion = tramosDeLaDireccion();
+  const codec = CODECS[claveCodec].corto;
+  const cifras = bytesACifras(bytes);
+  // El número de bloque y el total ocupan sitio en la cabecera, y el total
+  // depende de cuánto quepa en cada QR: probamos con 1 cifra (hasta 9 QR),
+  // luego con 2 (hasta 99)… y nos quedamos con la primera que cuadre.
+  for (let digitos = 1; ; digitos++) {
+    const cabeceraPeorCaso = `${PROTOCOLO}:${id}:${'9'.repeat(digitos)}:${'9'.repeat(digitos)}:${codec}:`;
+    const cabe = capacidadCifras(versionQR, [...direccion, [cabeceraPeorCaso, 'Alphanumeric']]);
+    // Cortamos siempre en trozos enteros de 53 cifras (22 bytes).
+    const porBloque = Math.max(CIFRAS_POR_TROZO, cabe - cabe % CIFRAS_POR_TROZO);
+    const total = Math.max(1, Math.ceil(cifras.length / porBloque));
+    if (String(total).length > digitos) continue;
+    const bloques = [];
+    for (let n = 1; n <= total; n++) {
+      const datos = cifras.slice((n - 1) * porBloque, n * porBloque);
+      const cabecera = `${PROTOCOLO}:${id}:${n}:${total}:${codec}:`;
+      const tramos = [...direccion, [cabecera, 'Alphanumeric'], [datos, 'Numeric']];
+      bloques.push({ id, numero: n, total, codec: claveCodec, tramos, texto: tramos.map(t => t[0]).join('') });
+    }
+    return bloques;
   }
-  return bloques;
+}
+
+/** Bytes de mensaje que caben en UN QR lleno de esa versión (para los desplegables). */
+function bytesPorQR(versionQR, claveCodec) {
+  const cabecera = `${PROTOCOLO}:XXXXXX:99:99:${CODECS[claveCodec].corto}:`;
+  const cabe = capacidadCifras(versionQR, [...tramosDeLaDireccion(), [cabecera, 'Alphanumeric']]);
+  return Math.floor(cabe / CIFRAS_POR_TROZO) * BYTES_POR_TROZO;
 }
 
 /* ---------- Tamaño al imprimir ----------
@@ -1476,10 +1603,9 @@ function pintarQRs(bloques) {
   const contenedor = $('tarjetas-qr');
   contenedor.innerHTML = '';
   for (const b of bloques) {
-    // Nivel de corrección M (15 %): buen equilibrio entre capacidad y robustez.
-    const qr = qrcode(0, 'M');                         // 0 = la versión más pequeña en la que quepa
-    if (b.prefijo) qr.addData(b.prefijo, 'Byte');      // la URL lleva minúsculas: modo Byte
-    qr.addData(b.carga, 'Alphanumeric');               // cabecera + Base32: modo alfanumérico
+    // Nivel de corrección L (7 %): el que deja más sitio para la voz.
+    const qr = qrcode(0, CORRECCION);                  // 0 = la versión más pequeña en la que quepa
+    for (const [texto, modo] of b.tramos) qr.addData(texto, modo);   // cada tramo en su modo
     qr.make();
     // El ID lo guardamos aparte al trocear: sacarlo partiendo el texto por
     // ':' falla en cuanto el QR empieza por "https:".
@@ -1493,12 +1619,13 @@ function pintarQRs(bloques) {
     titulo.textContent = `Código ${b.numero} de ${b.total}`;
     const pie = document.createElement('div');
     pie.className = 'pie';
-    pie.textContent = `ID ${b.id} · ${b.texto.length} caracteres · QR versión ${version} · ${(lado / 10).toFixed(1).replace('.', ',')} cm`;
+    pie.textContent = `ID ${b.id} · ${b.texto.length} caracteres · QR versión ${version}-${CORRECCION} · ${(lado / 10).toFixed(1).replace('.', ',')} cm`;
     tarjeta.appendChild(titulo);
     tarjeta.insertAdjacentHTML('beforeend', qr.createSvgTag({ cellSize: 2, margin: MARGEN_QR, scalable: true }));
     tarjeta.appendChild(pie);
     contenedor.appendChild(tarjeta);
   }
+  if (bloques.length) actualizarEtiquetasTamano(bloques[0].codec);
 }
 
 $('btn-imprimir').addEventListener('click', () => window.print());
@@ -1512,13 +1639,17 @@ $('btn-imprimir').addEventListener('click', () => window.print());
    Los datos van detrás del '#', así que tampoco llegan nunca al servidor.
    Lleva un ID NUEVO: si alguien tenía a medias la serie de QR del mismo
    mensaje, el enlace no se mezcla con esos bloques.
+   Va en Base32 (versión 2), no en cifras como los QR: en un enlace lo que
+   cuenta son los CARACTERES (WhatsApp corta a los 65.536), y Base32 usa
+   1,6 caracteres por byte frente a 2,4 de las cifras. 3 minutos a 1200
+   bit/s en cifras ya no cabrían en un solo mensaje de WhatsApp.
    ------------------------------------------------------------------ */
 
 /** WhatsApp no admite mensajes más largos (Telegram corta a los 4096). */
 const MAX_CARACTERES_WHATSAPP = 65536;
 
 function enlaceDelMensaje({ bytes, codec }) {
-  return `${direccionDeEstaPagina()}#${PROTOCOLO}:${generarId()}:1:1:${codec}:${bytesABase32(bytes)}`;
+  return `${direccionDeEstaPagina()}#${PROTOCOLO_ENLACE}:${generarId()}:1:1:${codec}:${bytesABase32(bytes)}`;
 }
 
 function ocultarEnlace(lado) {
@@ -1615,6 +1746,30 @@ document.querySelectorAll('.btn-qr-receptor').forEach(boton =>
 $('sel-tamano-resultado').innerHTML = $('sel-tamano').innerHTML;
 $('sel-tamano-resultado').value = $('sel-tamano').value;
 
+/* ---------- Segundos de voz que caben en un QR ----------
+   Cada opción de tamaño dice cuánta voz cabe en UN código de ese tamaño con
+   el códec elegido: bytes que caben ÷ bytes por segundo del códec. El de
+   arriba sigue al desplegable de códec; el de «Imprimir», al códec del
+   mensaje ya generado. En modo texto no se pone nada: no hay segundos. */
+function actualizarEtiquetasTamano(codecResultado) {
+  const pintar = (select, claveCodec) => {
+    const codec = CODECS[claveCodec];
+    for (const opcion of select.options) {
+      if (!opcion.dataset.base) opcion.dataset.base = opcion.textContent;
+      let texto = opcion.dataset.base;
+      if (codec && codec.tipo === 'audio') {
+        const segundos = bytesPorQR(parseInt(opcion.value, 10), claveCodec) / codec.bytesPorSegundo;
+        texto += ` · ${segundos.toLocaleString('es-ES', { maximumFractionDigits: segundos < 10 ? 1 : 0 })} s de voz por QR`;
+      }
+      if (opcion.dataset.nota) texto += ` (${opcion.dataset.nota})`;
+      opcion.textContent = texto;
+    }
+  };
+  pintar($('sel-tamano'), $('sel-codec').value);
+  pintar($('sel-tamano-resultado'), codecResultado || (mensajeGenerado ? mensajeGenerado.codec : $('sel-codec').value));
+}
+actualizarEtiquetasTamano();
+
 function cambiarTamanoQR(version) {
   $('sel-tamano').value = version;
   $('sel-tamano-resultado').value = version;
@@ -1665,14 +1820,20 @@ function analizarQR(texto) {
   const version = VERSIONES_PROTOCOLO[partes[0]];
   if (!version) throw new Error('Este QR no pertenece a Audio en Papel.');
   if (partes.length < 6) throw new Error('Cabecera incompleta: se esperaban 6 campos.');
-  const [, id, numeroTxt, totalTxt, codec] = partes;
+  const [, id, numeroTxt, totalTxt, codecTxt] = partes;
+  const codec = version.codecAbreviado ? CODEC_POR_ABREVIATURA[codecTxt] : codecTxt;
   const numero = parseInt(numeroTxt, 10);
   const total = parseInt(totalTxt, 10);
   const datos = partes.slice(5).join(':');
   if (!/^[A-Z0-9]{6}$/.test(id)) throw new Error('ID de mensaje no válido.');
   if (!(total >= 1 && numero >= 1 && numero <= total)) throw new Error('Numeración de bloque incoherente.');
-  if (!CODECS[codec]) throw new Error('Códec desconocido: ' + codec);
+  if (!CODECS[codec]) throw new Error('Códec desconocido: ' + codecTxt);
   if (!version.patron.test(datos)) throw new Error(`Los datos no son ${version.codificacion} válido.`);
+  // En cifras, los bloques intermedios traen trozos enteros de 53 y el
+  // último una longitud posible: si no cuadra, al QR le falta un trozo.
+  if (version.codificacion === 'numerico' && !longitudCifrasValida(datos.length, numero === total)) {
+    throw new Error('Datos incompletos en este QR: vuelve a escanearlo.');
+  }
   return { id, numero, total, codec, datos, codificacion: version.codificacion };
 }
 
@@ -1851,7 +2012,7 @@ async function reconstruirMensaje(reproducir) {
     // deshacemos la codificación de texto que traía la cabecera.
     let datos = '';
     for (let n = 1; n <= recepcion.total; n++) datos += recepcion.bloques.get(n);
-    const bytes = recepcion.codificacion === 'base32' ? base32ABytes(datos) : base64ABytes(datos);
+    const bytes = (DECODIFICADORES[recepcion.codificacion] || base64ABytes)(datos);
     mensajeRecibido = { bytes, codec: recepcion.codec };
 
     // ---- Modo TEXTO: descomprimir, mostrar y leer en voz alta ----
@@ -1958,12 +2119,12 @@ function decodificarQR(imagen) {
 
 /* ---------- Llegada por enlace ----------
    Si la página se ha abierto desde un QR-enlace, la dirección trae
-   "#AUDIORR:…". Lo procesamos como si lo hubiéramos escaneado nosotros y
+   "#AP3:…" (o "#AUDIORR2:…" en los enlaces y QR antiguos). Lo procesamos como si lo hubiéramos escaneado nosotros y
    limpiamos la barra de direcciones para que al recargar no se repita.
    ------------------------------------------------------------------ */
 function procesarLlegadaPorEnlace() {
   const carga = decodificarSeguro(location.hash.slice(1));
-  if (!/^AUDIORR2?:/.test(carga)) return false;     // v1 o v2 del protocolo
+  if (!/^(AP3|AUDIORR2?):/.test(carga)) return false;   // v3, v2 o v1 del protocolo
   cambiarPestana('receptor');
   procesarTextoQR(carga);
   history.replaceState(null, '', location.origin + location.pathname);

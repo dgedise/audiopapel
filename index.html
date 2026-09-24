@@ -2,6 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<!-- Los QR llevan la dirección corta HTTPS://AUDIOPAPEL.COM/#AP3:… (cabe en
+     el modo alfanumérico del QR y deja más sitio para la voz). Llegan aquí,
+     a la portada: los pasamos a la herramienta con el mensaje intacto antes
+     de que se cargue nada más. replace() no deja la portada en el historial. -->
+<script>
+  if (/^#(AP3|AUDIORR2?):/.test(location.hash)) location.replace('audio_en_papel.html' + location.hash);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>audiopapel · Mensajes de voz en códigos QR para imprimir</title>
 <meta name="description" content="Convierte un mensaje de voz en códigos QR para imprimir o en un enlace para WhatsApp. Cualquier móvil lo vuelve a hacer sonar, sin apps ni cuentas. Gratis.">
