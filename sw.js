@@ -20,7 +20,7 @@
    Solo se tocan peticiones a esta misma web: el contador de Google y
    cualquier otra dirección pasan sin intervenir.
    ===================================================================== */
-const VERSION = 'cf1fd30ab931';
+const VERSION = '652e0342d323';
 const CACHE = 'audiopapel-' + VERSION;
 const ARCHIVOS = [
     "./",
