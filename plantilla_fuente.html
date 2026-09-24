@@ -282,12 +282,23 @@
   .tarjeta-qr .pie { font-family: var(--f-mono); font-size: .7rem; color: #5A6278; margin-top: 10px; padding-top: 8px; border-top: 1.5px dashed #C9CFDA; }
 
   /* ---------- Receptor ---------- */
+  .txt-corto { display: none; }
+  @media (max-width: 560px) {
+    .botonera-lector { flex-wrap: nowrap; gap: 8px; }
+    .botonera-lector .boton { padding: 10px 13px; font-size: .95rem; white-space: nowrap; }
+    .botonera-lector #btn-camara { flex: 1; }
+    .botonera-lector .txt-largo { display: none; }
+    .botonera-lector .txt-corto { display: inline; }
+  }
   #visor { position: relative; width: 100%; max-width: 640px; margin: 16px auto 0; border-radius: var(--radio); overflow: hidden; background: #000; cursor: crosshair; }
   /* object-fit: contain evita que el vídeo se deforme si el contenedor no
      tiene la misma proporción que el sensor de la cámara. */
-  #visor video { display: block; width: 100%; height: auto; object-fit: contain; background: #000; }
-  /* Mira CUADRADA (un QR es cuadrado): el lado se mide sobre la ALTURA del
-     visor, así sigue siendo un cuadrado sea cual sea la proporción del vídeo. */
+  /* max-height: en un móvil en vertical la cámara da una imagen alta; sin
+     límite, el visor no cabría en la pantalla junto a los botones. */
+  #visor video { display: block; width: 100%; height: auto; max-height: 65vh; object-fit: contain; background: #000; }
+  /* Mira CUADRADA (un QR es cuadrado). Su lado lo pone ajustarMira() en JS:
+     el 88 % del lado CORTO de la imagen, sea la cámara horizontal o vertical
+     (la del móvil suele ser vertical). Esto de aquí es solo lo inicial. */
   #visor .mira {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     height: 88%; aspect-ratio: 1; border: 3px dashed rgba(255, 255, 255, .85);
@@ -368,7 +379,7 @@
         </svg>
         <b>audiopapel</b>
       </a>
-      <span class="protocolo">protocolo AUDIORR2 · todo en tu navegador</span>
+      <span class="protocolo">protocolo AP3 · todo en tu navegador</span>
     </h1>
     <nav class="pestanas" aria-label="Pestañas">
       <button id="btn-tab-emisor" class="activa" data-tab="emisor"><span class="n" aria-hidden="true">1</span>Grabar y crear QR</button>
@@ -465,12 +476,13 @@
 
     <div class="tarjeta">
       <h2>Escanea los códigos, en cualquier orden</h2>
-      <div class="fila">
+      <!-- En el móvil los tres botones van en UNA fila, con textos cortos:
+           si se apilaran, el visor de la cámara quedaría fuera de la pantalla. -->
+      <div class="fila botonera-lector">
         <button id="btn-camara" class="boton">Iniciar cámara</button>
-        <label>o sube una foto / imagen de un QR
-          <input type="file" id="archivo-imagen" accept="image/*">
-        </label>
-        <button id="btn-reiniciar" class="boton secundario">Empezar de cero</button>
+        <button id="btn-foto" class="boton secundario" title="Leer el QR de una foto o de una captura de pantalla"><span class="txt-largo">Subir foto de un QR</span><span class="txt-corto">Foto</span></button>
+        <input type="file" id="archivo-imagen" accept="image/*" hidden>
+        <button id="btn-reiniciar" class="boton secundario"><span class="txt-largo">Empezar de cero</span><span class="txt-corto">Reiniciar</span></button>
       </div>
       <div id="visor" style="display:none">
         <video id="video" playsinline autoplay muted></video>
@@ -2195,6 +2207,10 @@ async function iniciarCamara(idDispositivo) {
   $('visor').style.display = '';
   $('controles-camara').style.display = '';
   $('btn-camara').textContent = 'Parar cámara';
+  // Que el visor se vea ENTERO sin tener que desplazar la página a mano
+  // (en el móvil queda por debajo de la pantalla). "nearest" no mueve nada
+  // si ya se ve completo.
+  $('visor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const pista = flujoCamara.getVideoTracks()[0];
   if (idDispositivo) localStorage.setItem(CLAVE_CAMARA, idDispositivo);
@@ -2399,6 +2415,23 @@ async function leerConJsQR(video, centro) {
   return decodificarQR(ctx.getImageData(0, 0, lienzo.width, lienzo.height));
 }
 
+/**
+ * Mira = 88 % del lado corto de la imagen que se VE. Con object-fit: contain
+ * la imagen puede no llenar el <video> (quedan bandas negras): la escala es
+ * la menor de las dos. El cuadrado central es justo la zona que leerConJsQR
+ * analiza con más detalle.
+ */
+function ajustarMira() {
+  const video = $('video');
+  const escala = Math.min(video.clientWidth / video.videoWidth, video.clientHeight / video.videoHeight);
+  if (!(escala > 0 && isFinite(escala))) return;             // aún sin imagen
+  const lado = 0.88 * Math.min(video.videoWidth, video.videoHeight) * escala;
+  const mira = document.querySelector('#visor .mira');
+  mira.style.width = mira.style.height = lado + 'px';
+}
+new ResizeObserver(ajustarMira).observe($('video'));          // cambia el tamaño de la pantalla
+$('video').addEventListener('resize', ajustarMira);            // cambia la resolución de la cámara
+
 async function detenerCamara() {
   escaneando = false;
   sesionCamara++;                                 // cualquier bucle en marcha termina
@@ -2485,6 +2518,10 @@ $('btn-camara').addEventListener('click', async () => {
     mostrarEstado($('estado-receptor'), 'No se pudo abrir la cámara: ' + (err.message || err) + '. Recuerda: hace falta HTTPS o localhost.', 'error');
   }
 });
+
+/* El selector de archivos del navegador va oculto: ocupa mucho y en el
+   móvil empujaba el visor fuera de la pantalla. Lo abre este botón. */
+$('btn-foto').addEventListener('click', () => $('archivo-imagen').click());
 
 /**
  * Leer un QR desde una foto o captura de pantalla. Probamos varios tamaños

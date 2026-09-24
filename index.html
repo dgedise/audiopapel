@@ -5,9 +5,15 @@
 <!-- Los QR llevan la dirección corta https://audiopapel.com/#AP3:… (deja
      más sitio para la voz que la dirección completa). Llegan aquí, a la
      portada: los pasamos a la herramienta con el mensaje intacto antes de
-     que se cargue nada más. replace() no deja la portada en el historial. -->
+     que se cargue nada más. replace() no deja la portada en el historial.
+     Si la portada ya estaba abierta, el navegador solo cambia lo de tras el
+     '#' sin recargar: por eso escuchamos también "hashchange". -->
 <script>
-  if (/^#(AP3|AUDIORR2?):/.test(location.hash)) location.replace('audio_en_papel.html' + location.hash);
+  function reenviarMensaje() {
+    if (/^#(AP3|AUDIORR2?):/.test(location.hash)) location.replace('audio_en_papel.html' + location.hash);
+  }
+  reenviarMensaje();
+  addEventListener('hashchange', reenviarMensaje);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>audiopapel · Mensajes de voz en códigos QR para imprimir</title>
@@ -87,9 +93,9 @@
         { "@type": "Question", "name": "¿Dónde se guarda mi voz?",
           "acceptedAnswer": { "@type": "Answer", "text": "En el papel (o en el enlace que envíes), y en ningún sitio más. Todo se procesa en tu dispositivo y los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía al servidor." } },
         { "@type": "Question", "name": "¿Por qué suena un poco robótica?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 1200 bits por segundo con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 700 bits por segundo (1200 con la calidad alta) con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
         { "@type": "Question", "name": "¿Cuánto puede durar un mensaje?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Un minuto de voz ocupa unos 6 códigos QR con el tamaño recomendado." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Con el tamaño máximo, cada código QR guarda unos 29 segundos de voz: tres minutos caben en 7 códigos." } },
         { "@type": "Question", "name": "¿Puedo mandarlo por WhatsApp?",
           "acceptedAnswer": { "@type": "Answer", "text": "Sí. Pulsa «Enviar como enlace» al crear los códigos o después de escanearlos: el mensaje entero va dentro de un solo enlace. Tres minutos de voz ocupan unos 43.000 caracteres y WhatsApp admite hasta 65.536." } }
       ]
@@ -505,14 +511,14 @@
         <article class="paso">
           <span class="num">1</span>
           <h3>Graba</h3>
-          <p>Habla hasta tres minutos, carga un audio o dicta un texto. Codec 2, un códec de radioaficionados, deja cada segundo de voz en 150 bytes.</p>
+          <p>Habla hasta tres minutos, carga un audio o dicta un texto. Codec 2, un códec de radioaficionados, deja cada segundo de voz en 100 bytes.</p>
           <code>micrófono → 8 kHz → Codec 2</code>
         </article>
         <article class="paso">
           <span class="num">2</span>
           <h3>Imprime o envía</h3>
           <p>El mensaje se trocea en códigos QR numerados: «Código 2 de 6». Imprímelos, recórtalos, pégalos donde quieras o muéstralos en pantalla. O mándalo entero en un enlace por WhatsApp.</p>
-          <code>bytes → Base32 → trozos → QR</code>
+          <code>bytes → cifras → trozos → QR</code>
         </article>
         <article class="paso">
           <span class="num">3</span>
@@ -528,9 +534,9 @@
   <section aria-label="audiopapel en cifras">
     <div class="envoltorio">
       <div class="cifras">
-        <div class="cifra"><b>1.200<small>bit/s</small></b><span>lo que ocupa la voz: 150 bytes por segundo, menos que este párrafo.</span></div>
-        <div class="cifra"><b>107<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
-        <div class="cifra"><b>≈ 6<small>QR</small></b><span>por minuto de voz, con el tamaño de código recomendado.</span></div>
+        <div class="cifra"><b>700<small>bit/s</small></b><span>lo que ocupa la voz: 100 bytes por segundo, menos que este párrafo.</span></div>
+        <div class="cifra"><b>160<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
+        <div class="cifra"><b>≈ 29<small>s</small></b><span>de voz en cada código QR, con el tamaño máximo.</span></div>
         <div class="cifra"><b>0<small>servidores</small></b><span>audiopapel no recibe tu voz: viaja en el papel o dentro del enlace.</span></div>
       </div>
     </div>
@@ -607,7 +613,7 @@
           <h3>En papel</h3>
           <p class="lema">Para guardar, regalar o pegar en la pared.</p>
           <dl>
-            <dt>Cabe</dt><dd>unos 6 códigos QR por minuto de voz</dd>
+            <dt>Cabe</dt><dd>unos 29 segundos de voz en cada código QR</dd>
             <dt>Se abre</dt><dd>con la cámara de cualquier móvil</dd>
             <dt>Dura</dt><dd>lo que dure el papel</dd>
           </dl>
@@ -635,10 +641,10 @@
       </div>
 
       <div class="anatomia">
-        <p class="prefijo">https://audiopapel.com/audio_en_papel.html# <em>← todo lo que va tras «#» se queda en tu móvil: el navegador nunca lo envía al servidor</em></p>
+        <p class="prefijo">https://audiopapel.com/# <em>← todo lo que va tras «#» se queda en tu móvil: el navegador nunca lo envía al servidor</em></p>
         <div class="desliza">
-          <div class="trama" role="img" aria-label="Estructura de un código: AUDIORR2, identificador K7P2QX, bloque 2 de 7, códec C2-1200 y datos en Base32">
-            <div class="campo c1"><span class="valor">AUDIORR2</span><span class="quees">protocolo, versión 2</span></div>
+          <div class="trama" role="img" aria-label="Estructura de un código: AP3, identificador K7P2QX, bloque 2 de 7, códec 7 (Codec 2 a 700 bit/s) y datos en cifras">
+            <div class="campo c1"><span class="valor">AP3</span><span class="quees">protocolo, versión 3</span></div>
             <span class="sep">:</span>
             <div class="campo c2"><span class="valor">K7P2QX</span><span class="quees">identificador del mensaje</span></div>
             <span class="sep">:</span>
@@ -646,14 +652,14 @@
             <span class="sep">:</span>
             <div class="campo c4"><span class="valor">7</span><span class="quees">…de siete</span></div>
             <span class="sep">:</span>
-            <div class="campo c5"><span class="valor">C2-1200</span><span class="quees">con qué descomprimir</span></div>
+            <div class="campo c5"><span class="valor">7</span><span class="quees">con qué descomprimir: Codec 2 a 700 bit/s</span></div>
             <span class="sep">:</span>
-            <div class="campo c6"><span class="valor">GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQMZXW6YTBOI…</span><span class="quees">la voz comprimida, en Base32</span></div>
+            <div class="campo c6"><span class="valor">04829150731966278514093365207481…</span><span class="quees">la voz comprimida, escrita en cifras</span></div>
           </div>
         </div>
         <p class="cadena-titulo">Ida</p>
         <div class="cadena" aria-label="Cadena del emisor">
-          <span>🎙 micrófono</span><i>→</i><span>8 kHz mono</span><i>→</i><span>Codec 2 · 1200 bit/s</span><i>→</i><span>Base32</span><i>→</i><span>trozos numerados</span><i>→</i><span>QR</span>
+          <span>🎙 micrófono</span><i>→</i><span>8 kHz mono</span><i>→</i><span>Codec 2 · 700 bit/s</span><i>→</i><span>cifras</span><i>→</i><span>trozos numerados</span><i>→</i><span>QR</span>
         </div>
         <p class="cadena-titulo">Vuelta</p>
         <div class="cadena" aria-label="Cadena del receptor">
@@ -668,9 +674,9 @@
           <p>Curiosidad: el mismo QR nunca produce dos veces el mismo archivo de audio, aunque suene igual.</p>
         </div>
         <div class="apunte">
-          <h3>Mayúsculas para caber más</h3>
-          <p>Un QR guarda los caracteres de dos formas: el modo <em>byte</em> admite cualquier letra y gasta 8 bits por carácter; el modo <em>alfanumérico</em> solo admite mayúsculas y cifras, pero gasta 5,5.</p>
-          <p>Por eso los datos van en Base32, solo con <code>A–Z</code> y <code>2–7</code>: un 22 % más de voz en cada código.</p>
+          <h3>Cifras para caber más</h3>
+          <p>Un QR guarda los caracteres de tres formas: el modo <em>byte</em> admite cualquier letra y gasta 8 bits por carácter; el <em>alfanumérico</em>, solo mayúsculas y cifras, 5,5; y el <em>numérico</em>, solo cifras, 3,33.</p>
+          <p>Por eso la voz viaja escrita como un número larguísimo: cada 22 bytes se convierten en 53 cifras. Ocupa casi lo mismo que los bytes a pelo y sigue siendo un enlace que cualquier cámara entiende. Además, el código usa la corrección de errores más ligera (<code>L</code>): aguanta algo peor las manchas, pero deja un 27 % más de sitio.</p>
         </div>
         <div class="apunte">
           <h3>Orden libre, como en Internet</h3>
@@ -696,7 +702,7 @@
           <h3>Modo audio</h3>
           <p class="lema">Se guarda tu voz, con tu tono y tu forma de hablar.</p>
           <dl>
-            <dt>Cabe</dt><dd>unos 6 QR por minuto (1.200 bit/s), o un 40 % menos a 700 bit/s</dd>
+            <dt>Cabe</dt><dd>unos 2 QR grandes por minuto (700 bit/s), o 3 con la calidad alta (1.200 bit/s)</dd>
             <dt>Suena</dt><dd>a radio de onda corta: robótica, pero inconfundiblemente tuya</dd>
             <dt>Necesita</dt><dd>nada más que el navegador; funciona sin conexión</dd>
           </dl>
@@ -737,11 +743,11 @@
         </details>
         <details>
           <summary>¿Por qué suena un poco robótica?</summary>
-          <div class="respuesta"><p>Porque para caber en papel la voz se comprime a 1.200 bits por segundo, menos del 1 % de lo que ocuparía sin comprimir. Codec 2, el códec que lo hace posible, se diseñó para radioaficionados: prioriza que se entienda lo que dices sobre la fidelidad del sonido.</p></div>
+          <div class="respuesta"><p>Porque para caber en papel la voz se comprime a 700 bits por segundo (1.200 con la calidad alta), menos del 1 % de lo que ocuparía sin comprimir. Codec 2, el códec que lo hace posible, se diseñó para radioaficionados: prioriza que se entienda lo que dices sobre la fidelidad del sonido.</p></div>
         </details>
         <details>
           <summary>¿Cuánto puede durar un mensaje?</summary>
-          <div class="respuesta"><p>Hasta tres minutos. Un minuto de voz son unos 6 códigos con el tamaño recomendado. Si usas el tamaño máximo, tres minutos caben en 14 códigos, aunque cuestan más de leer con cámaras modestas.</p></div>
+          <div class="respuesta"><p>Hasta tres minutos. Con el tamaño máximo (7,4 cm impreso), cada código guarda unos 29 segundos de voz: tres minutos caben en 7 códigos. Con la calidad alta (1.200 bit/s) son unos 19 segundos por código. Los tamaños pequeños se leen mejor con cámaras modestas, pero hacen falta más códigos.</p></div>
         </details>
         <details>
           <summary>¿Puedo mandarlo por WhatsApp?</summary>
@@ -798,7 +804,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 /* =====================================================================
    PORTADA DE audiopapel
    El QR del tique es real: se genera aquí con el mismo protocolo que la
-   herramienta (AUDIORR2, modo texto) y apunta a ella, así que al
+   herramienta (AP3, modo texto) y apunta a esta web, así que al
    escanearlo se abre audiopapel y lee el mensaje en voz alta.
    ===================================================================== */
 const $ = (id) => document.getElementById(id);
@@ -858,17 +864,22 @@ const esWeb = /^https?:$/.test(new URL(APP).protocol);
 const esLocal = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/.test(new URL(APP).hostname);
 const APP_QR = esWeb && !esLocal ? APP.split('#')[0].split('?')[0] : 'https://audiopapel.com/audio_en_papel.html';
 
-// ---- Base32 (el mismo que usa la herramienta) ----
-const ALFABETO_BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function bytesABase32(bytes) {
-  let salida = '', acumulado = 0, bits = 0;
-  for (const byte of bytes) {
-    acumulado = (acumulado << 8) | byte;
-    bits += 8;
-    while (bits >= 5) { salida += ALFABETO_BASE32[(acumulado >>> (bits - 5)) & 31]; bits -= 5; }
-    acumulado &= (1 << bits) - 1;
+// El QR apunta a la CARPETA de la herramienta (la portada), que reenvía:
+// es la dirección corta que usan los QR de la herramienta.
+const DIRECCION_QR = APP_QR.replace(/[^/]*$/, '') + '#';
+
+// ---- Bytes → cifras (lo mismo que hace la herramienta) ----
+// 22 bytes = un número de 176 bits = 53 cifras; un trozo final más corto
+// ocupa las cifras justas para escribir 256^m − 1.
+const CIFRAS_PARA_BYTES = Array.from({ length: 23 }, (_, m) => m === 0 ? 0 : (256n ** BigInt(m) - 1n).toString().length);
+function bytesACifras(bytes) {
+  let salida = '';
+  for (let i = 0; i < bytes.length; i += 22) {
+    const trozo = bytes.subarray(i, i + 22);
+    let n = 0n;
+    for (const b of trozo) n = n * 256n + BigInt(b);
+    salida += n.toString().padStart(CIFRAS_PARA_BYTES[trozo.length], '0');
   }
-  if (bits > 0) salida += ALFABETO_BASE32[(acumulado << (5 - bits)) & 31];
   return salida;
 }
 
@@ -893,13 +904,17 @@ async function pintarQR(texto, id) {
   const miTurno = ++turno;
   const { codec, bytes } = await comprimirTexto(texto.trim().replace(/\s+/g, ' ') || 'audiopapel');
   if (miTurno !== turno) return;                         // llegó otra pulsación mientras comprimíamos
-  const carga = `AUDIORR2:${id}:1:1:${codec}:${bytesABase32(bytes)}`;
-  const enlace = APP_QR + '#' + carga;
+  const cabecera = `AP3:${id}:1:1:${codec === 'TXT-Z' ? 'Z' : 'T'}:`;   // códec abreviado
+  const cifras = bytesACifras(bytes);
+  // El botón va directo a la herramienta: desde aquí mismo, un enlace a la
+  // portada solo cambiaría el '#'. El QR lleva la dirección corta.
+  const enlace = APP_QR + '#' + cabecera + cifras;
   let qr;
   try {
-    qr = qrcode(0, 'M');
-    qr.addData(APP_QR + '#', 'Byte');                    // la dirección lleva minúsculas: modo byte
-    qr.addData(carga, 'Alphanumeric');                   // cabecera y datos: modo alfanumérico
+    qr = qrcode(0, 'L');                                 // corrección L: la de la herramienta
+    qr.addData(DIRECCION_QR, 'Byte');                    // la dirección lleva minúsculas: modo byte
+    qr.addData(cabecera, 'Alphanumeric');                // cabecera: modo alfanumérico
+    qr.addData(cifras, 'Numeric');                       // datos en cifras: modo numérico
     qr.make();
   } catch (_) {
     $('bytes-demo').textContent = 'demasiado largo para un QR';
