@@ -21,6 +21,11 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
+<!-- iPhone/iPad: al añadirla a la pantalla de inicio, que se abra como una app
+     (sin la barra de Safari) y con este nombre bajo el icono. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="audiopapel">
 <meta name="theme-color" content="#FAFBF8">
 <!-- Tipografías de audiopapel, desde el propio sitio. Si abres este archivo
      suelto o sin conexión, usa las del sistema y funciona exactamente igual:
@@ -194,6 +199,15 @@
   nav.pestanas button.activa { background: var(--tinta); color: var(--boton-texto); }
   nav.pestanas .n { font-family: var(--f-mono); font-size: .72rem; font-weight: 600; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; border: 1.5px solid currentColor; }
   @media (max-width: 560px) { nav.pestanas { width: 100%; } nav.pestanas button { flex: 1; justify-content: center; padding: 9px 10px; font-size: .95rem; } }
+
+  /* Aviso «Instala audiopapel» (debajo de la cabecera) */
+  .aviso-instalar { background: var(--subrayado); border-bottom: 1px solid var(--borde); color: var(--tinta); }
+  .aviso-instalar .contenido { max-width: 1100px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .aviso-instalar p { flex: 1; margin: 0; font-size: .95rem; line-height: 1.35; }
+  .aviso-instalar button.boton { padding: 8px 16px; font-size: .95rem; flex: none; }
+  .aviso-instalar button[hidden] { display: none; }             /* .boton fija display y anularía hidden */
+  .aviso-instalar .cerrar { flex: none; background: none; border: 0; padding: 6px 8px; font-size: 1.15rem; line-height: 1; color: inherit; cursor: pointer; border-radius: 8px; }
+  .aviso-instalar .cerrar:hover { background: rgba(0, 0, 0, .08); }
 
   main { max-width: 1100px; margin: 0 auto; padding: 22px 16px 40px; }
   section.pestana { display: none; }
@@ -388,6 +402,15 @@
   </div>
 </header>
 
+<!-- Aparece solo cuando se puede instalar (ver «Instalar como app» en el código). -->
+<div id="aviso-instalar" class="aviso-instalar" hidden>
+  <div class="contenido">
+    <p id="texto-instalar"></p>
+    <button id="btn-instalar" class="boton">Instalar</button>
+    <button id="btn-cerrar-instalar" class="cerrar" aria-label="No volver a mostrar" title="No volver a mostrar">✕</button>
+  </div>
+</div>
+
 <main>
 
   <!-- ============================================================ -->
@@ -408,8 +431,8 @@
       <div class="fila" style="margin-top:12px">
         <label>Códec de voz
           <select id="sel-codec">
-            <option value="C2-1200">Audio · Codec 2 1200 bit/s (mejor calidad)</option>
-            <option value="C2-700" selected>Audio · Codec 2 700 bit/s (menos QRs)</option>
+            <option value="C2-1200" selected>Audio · Codec 2 1200 bit/s (mejor calidad)</option>
+            <option value="C2-700">Audio · Codec 2 700 bit/s (menos QRs)</option>
             <option value="TXT-Z">Texto · dictado + voz sintética (1 solo QR)</option>
           </select>
         </label>
@@ -1323,7 +1346,21 @@ function mimeGrabacion() {
   return candidatos.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
 }
 
+/* ---------- Copia guardada en el móvil ----------
+   Los navegadores solo dejan usar la cámara y el micrófono EN DIRECTO en
+   páginas seguras (https:// o el propio ordenador). Una copia de esta página
+   guardada en el móvil se abre como archivo (content://…) y ahí no hay
+   navigator.mediaDevices. No se puede saltar, pero sí se puede seguir:
+   «Foto» abre la cámara del sistema para hacer una foto al QR, y en vez de
+   grabar se puede cargar un audio. Lo explicamos en vez de dar un error. */
+function hayCamaraYMicrofono() {
+  return window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
+}
+const AVISO_SIN_CAMARA = 'Esta página no está abierta desde una web segura (https://), por ejemplo porque es una copia guardada, y así el navegador no deja usar la cámara en directo. Pulsa «Foto»: en el móvil puedes hacer una foto al QR con la cámara. O abre https://audiopapel.com.';
+const AVISO_SIN_MICROFONO = 'Esta página no está abierta desde una web segura (https://), por ejemplo porque es una copia guardada, y así el navegador no deja usar el micrófono. Carga un audio grabado con otra aplicación, o abre https://audiopapel.com para grabar aquí.';
+
 async function empezarGrabacion() {
+  if (!hayCamaraYMicrofono()) throw new Error(AVISO_SIN_MICROFONO);
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
   });
@@ -1369,7 +1406,8 @@ $('btn-grabar').addEventListener('click', async () => {
       await empezarGrabacion();
     }
   } catch (err) {
-    mostrarEstado($('estado-emisor'), 'No se pudo acceder al micrófono: ' + err.message, 'error');
+    if (err.message === AVISO_SIN_MICROFONO) mostrarEstado($('estado-emisor'), AVISO_SIN_MICROFONO, 'aviso');
+    else mostrarEstado($('estado-emisor'), 'No se pudo acceder al micrófono: ' + err.message, 'error');
   }
 });
 
@@ -2510,14 +2548,84 @@ $('zoom').addEventListener('input', async (e) => {
 });
 
 $('btn-camara').addEventListener('click', async () => {
+  if (!hayCamaraYMicrofono()) {
+    mostrarEstado($('estado-receptor'), AVISO_SIN_CAMARA, 'aviso');
+    $('btn-foto').focus();
+    return;
+  }
   try {
     if (flujoCamara) { iniciarCamara.yaCorregida = false; await detenerCamara(); }
     else await iniciarCamara(null);
   } catch (err) {
     flujoCamara = null;
-    mostrarEstado($('estado-receptor'), 'No se pudo abrir la cámara: ' + (err.message || err) + '. Recuerda: hace falta HTTPS o localhost.', 'error');
+    mostrarEstado($('estado-receptor'), 'No se pudo abrir la cámara: ' + (err.message || err) + '. Comprueba que le has dado permiso (el candado de la barra de direcciones).', 'error');
   }
 });
+
+// Abierta como copia guardada: lo decimos desde el principio, antes de que
+// el usuario pulse «Iniciar cámara» y se encuentre un error.
+if (!hayCamaraYMicrofono()) mostrarEstado($('estado-receptor'), AVISO_SIN_CAMARA, 'aviso');
+
+/* ---------- Instalar como app ----------
+   La herramienta se puede instalar en la pantalla de inicio (el manifiesto
+   site.webmanifest dice nombre, icono y que se abra sin barras). Instalada
+   se abre desde https://audiopapel.com, así que tiene cámara y micrófono,
+   que una página guardada como archivo no tiene.
+     · Android (y Chrome o Edge en el ordenador): el navegador avisa con el
+       evento "beforeinstallprompt" cuando se puede instalar. Lo guardamos y
+       enseñamos nuestro botón «Instalar», que abre su ventana de instalar.
+     · iPhone y iPad: Safari no tiene ese evento ni deja instalar desde la
+       página. Solo podemos explicar cómo: Compartir › «Añadir a pantalla de
+       inicio».
+   Si ya se está usando como app instalada, o se ha cerrado el aviso con la
+   ✕, no se enseña. */
+const CLAVE_INSTALAR = 'audiopapel.instalar-descartado';
+const abiertaComoApp = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);     // iPad con iPadOS 13+
+let peticionInstalar = null;
+
+function avisoInstalarDescartado() {
+  try { return localStorage.getItem(CLAVE_INSTALAR) === '1'; } catch (_) { return false; }
+}
+
+function mostrarAvisoInstalar(texto, conBoton) {
+  if (abiertaComoApp || avisoInstalarDescartado()) return;
+  $('texto-instalar').textContent = texto;
+  $('btn-instalar').hidden = !conBoton;
+  $('aviso-instalar').hidden = false;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();                      // sin la barrita de Chrome: ponemos nuestro aviso
+  peticionInstalar = e;
+  mostrarAvisoInstalar('Instala audiopapel: se abre como una app, con la cámara lista.', true);
+});
+
+$('btn-instalar').addEventListener('click', async () => {
+  if (!peticionInstalar) return;
+  peticionInstalar.prompt();               // la ventana de instalar del propio navegador
+  await peticionInstalar.userChoice;       // "accepted" o "dismissed": solo se puede pedir una vez
+  peticionInstalar = null;
+  $('aviso-instalar').hidden = true;
+});
+
+window.addEventListener('appinstalled', () => { $('aviso-instalar').hidden = true; });
+
+$('btn-cerrar-instalar').addEventListener('click', () => {
+  $('aviso-instalar').hidden = true;
+  try { localStorage.setItem(CLAVE_INSTALAR, '1'); } catch (_) { /* modo privado: volverá a salir */ }
+});
+
+// Guardar la web en el móvil para que funcione SIN CONEXIÓN (ver sw.js).
+// Solo en páginas seguras; en una copia guardada como archivo no se puede.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('sw.js').catch(() => { /* sin copia: funciona igual con conexión */ });
+}
+
+if (esIOS && estaEnWebPublica()) {
+  mostrarAvisoInstalar('Tenla como una app: toca Compartir y elige «Añadir a pantalla de inicio».', false);
+}
 
 /* El selector de archivos del navegador va oculto: ocupa mucho y en el
    móvil empujaba el visor fuera de la pantalla. Lo abre este botón. */

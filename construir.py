@@ -47,3 +47,27 @@ portada = open('portada_fuente.html', encoding='utf-8').read().replace('__QRCODE
 assert '__QRCODE_JS__' not in portada
 open('index.html', 'w', encoding='utf-8', newline='\n').write(portada)
 print('escrito index.html', len(portada.encode('utf-8')), 'bytes')
+
+# ---------------------------------------------------------------- sin conexión
+# sw.js (el service worker) guarda estos archivos en el móvil. Su VERSION es
+# una huella del contenido: si cambia cualquiera, cambia sw.js, y el móvil
+# descarga la versión nueva la próxima vez que abra la web con conexión.
+import glob
+import hashlib
+import json
+import os
+
+archivos = ['./', 'index.html', 'audio_en_papel.html', 'privacidad.html', 'creditos.html',
+            'site.webmanifest', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png',
+            'icono-192.png', 'icono-512.png', 'fuentes/fuentes.css']
+archivos += sorted(p.replace(os.sep, '/') for p in glob.glob('fuentes/*.woff2'))
+huella = hashlib.sha256()
+for ruta in archivos:
+    huella.update(open('index.html' if ruta == './' else ruta, 'rb').read())
+version = huella.hexdigest()[:12]
+sw = (open('sw_fuente.js', encoding='utf-8').read()
+      .replace('__VERSION__', version)
+      .replace('__ARCHIVOS__', json.dumps(archivos, indent=2).replace('\n', '\n  ')))
+assert '__' not in sw.replace('__proto__', '')
+open('sw.js', 'w', encoding='utf-8', newline='\n').write(sw)
+print('escrito sw.js', version, len(archivos), 'archivos para usar sin conexión')

@@ -39,6 +39,11 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
+<!-- iPhone/iPad: al añadirla a la pantalla de inicio, que se abra como una app
+     (sin la barra de Safari) y con este nombre bajo el icono. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="audiopapel">
 <meta name="theme-color" content="#FAFBF8">
 
 <!-- Tipografías desde el propio sitio: más rápido y sin terceros -->
@@ -89,13 +94,13 @@
       "@type": "FAQPage",
       "mainEntity": [
         { "@type": "Question", "name": "¿Hay que instalar algo?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "No hace falta: audiopapel es una página web y para escuchar basta la cámara del móvil. Si la usas a menudo, puedes instalarla como una app, que funciona también sin conexión: en Android, con el botón «Instalar» que aparece en la herramienta o desde el menú de Chrome; en iPhone y iPad, desde Compartir › «Añadir a pantalla de inicio»." } },
         { "@type": "Question", "name": "¿Dónde se guarda mi voz?",
           "acceptedAnswer": { "@type": "Answer", "text": "En el papel (o en el enlace que envíes), y en ningún sitio más. Todo se procesa en tu dispositivo y los datos viajan tras el «#» del enlace, una parte de la dirección que el navegador nunca envía al servidor." } },
         { "@type": "Question", "name": "¿Por qué suena un poco robótica?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 700 bits por segundo (1200 con la calidad alta) con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Para caber en papel, la voz se comprime a 1200 bits por segundo con Codec 2, un códec diseñado para radioaficionados que prioriza que se entienda lo que dices." } },
         { "@type": "Question", "name": "¿Cuánto puede durar un mensaje?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Con el tamaño máximo, cada código QR guarda unos 29 segundos de voz: tres minutos caben en 7 códigos." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Hasta tres minutos. Con el tamaño máximo, cada código QR guarda unos 19 segundos de voz: tres minutos caben en 10 códigos." } },
         { "@type": "Question", "name": "¿Puedo mandarlo por WhatsApp?",
           "acceptedAnswer": { "@type": "Answer", "text": "Sí. Pulsa «Enviar como enlace» al crear los códigos o después de escanearlos: el mensaje entero va dentro de un solo enlace. Tres minutos de voz ocupan unos 43.000 caracteres y WhatsApp admite hasta 65.536." } }
       ]
@@ -397,6 +402,8 @@
   .preguntas details[open] summary::after { content: "–"; }
   .preguntas .respuesta { padding: 0 0 22px; color: var(--tinta-2); max-width: 44rem; }
   .preguntas .respuesta p + p { margin-top: 10px; }
+  .preguntas .respuesta ul { margin: 10px 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .preguntas .respuesta ul + p { margin-top: 10px; }
 
   /* Cierre */
   .cierre { padding-block: 90px 70px; text-align: left; }
@@ -511,7 +518,7 @@
         <article class="paso">
           <span class="num">1</span>
           <h3>Graba</h3>
-          <p>Habla hasta tres minutos, carga un audio o dicta un texto. Codec 2, un códec de radioaficionados, deja cada segundo de voz en 100 bytes.</p>
+          <p>Habla hasta tres minutos, carga un audio o dicta un texto. Codec 2, un códec de radioaficionados, deja cada segundo de voz en 150 bytes.</p>
           <code>micrófono → 8 kHz → Codec 2</code>
         </article>
         <article class="paso">
@@ -534,9 +541,9 @@
   <section aria-label="audiopapel en cifras">
     <div class="envoltorio">
       <div class="cifras">
-        <div class="cifra"><b>700<small>bit/s</small></b><span>lo que ocupa la voz: 100 bytes por segundo, menos que este párrafo.</span></div>
-        <div class="cifra"><b>160<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
-        <div class="cifra"><b>≈ 29<small>s</small></b><span>de voz en cada código QR, con el tamaño máximo.</span></div>
+        <div class="cifra"><b>1.200<small>bit/s</small></b><span>lo que ocupa la voz: 150 bytes por segundo, menos que este párrafo.</span></div>
+        <div class="cifra"><b>107<small>: 1</small></b><span>de compresión frente al mismo audio sin comprimir.</span></div>
+        <div class="cifra"><b>≈ 19<small>s</small></b><span>de voz en cada código QR, con el tamaño máximo.</span></div>
         <div class="cifra"><b>0<small>servidores</small></b><span>audiopapel no recibe tu voz: viaja en el papel o dentro del enlace.</span></div>
       </div>
     </div>
@@ -613,7 +620,7 @@
           <h3>En papel</h3>
           <p class="lema">Para guardar, regalar o pegar en la pared.</p>
           <dl>
-            <dt>Cabe</dt><dd>unos 29 segundos de voz en cada código QR</dd>
+            <dt>Cabe</dt><dd>unos 19 segundos de voz en cada código QR</dd>
             <dt>Se abre</dt><dd>con la cámara de cualquier móvil</dd>
             <dt>Dura</dt><dd>lo que dure el papel</dd>
           </dl>
@@ -643,7 +650,7 @@
       <div class="anatomia">
         <p class="prefijo">https://audiopapel.com/# <em>← todo lo que va tras «#» se queda en tu móvil: el navegador nunca lo envía al servidor</em></p>
         <div class="desliza">
-          <div class="trama" role="img" aria-label="Estructura de un código: AP3, identificador K7P2QX, bloque 2 de 7, códec 7 (Codec 2 a 700 bit/s) y datos en cifras">
+          <div class="trama" role="img" aria-label="Estructura de un código: AP3, identificador K7P2QX, bloque 2 de 7, códec 12 (Codec 2 a 1.200 bit/s) y datos en cifras">
             <div class="campo c1"><span class="valor">AP3</span><span class="quees">protocolo, versión 3</span></div>
             <span class="sep">:</span>
             <div class="campo c2"><span class="valor">K7P2QX</span><span class="quees">identificador del mensaje</span></div>
@@ -652,14 +659,14 @@
             <span class="sep">:</span>
             <div class="campo c4"><span class="valor">7</span><span class="quees">…de siete</span></div>
             <span class="sep">:</span>
-            <div class="campo c5"><span class="valor">7</span><span class="quees">con qué descomprimir: Codec 2 a 700 bit/s</span></div>
+            <div class="campo c5"><span class="valor">12</span><span class="quees">con qué descomprimir: Codec 2 a 1.200 bit/s</span></div>
             <span class="sep">:</span>
             <div class="campo c6"><span class="valor">04829150731966278514093365207481…</span><span class="quees">la voz comprimida, escrita en cifras</span></div>
           </div>
         </div>
         <p class="cadena-titulo">Ida</p>
         <div class="cadena" aria-label="Cadena del emisor">
-          <span>🎙 micrófono</span><i>→</i><span>8 kHz mono</span><i>→</i><span>Codec 2 · 700 bit/s</span><i>→</i><span>cifras</span><i>→</i><span>trozos numerados</span><i>→</i><span>QR</span>
+          <span>🎙 micrófono</span><i>→</i><span>8 kHz mono</span><i>→</i><span>Codec 2 · 1200 bit/s</span><i>→</i><span>cifras</span><i>→</i><span>trozos numerados</span><i>→</i><span>QR</span>
         </div>
         <p class="cadena-titulo">Vuelta</p>
         <div class="cadena" aria-label="Cadena del receptor">
@@ -702,7 +709,7 @@
           <h3>Modo audio</h3>
           <p class="lema">Se guarda tu voz, con tu tono y tu forma de hablar.</p>
           <dl>
-            <dt>Cabe</dt><dd>unos 2 QR grandes por minuto (700 bit/s), o 3 con la calidad alta (1.200 bit/s)</dd>
+            <dt>Cabe</dt><dd>unos 3 QR grandes por minuto (1.200 bit/s), o 2 si eliges 700 bit/s</dd>
             <dt>Suena</dt><dd>a radio de onda corta: robótica, pero inconfundiblemente tuya</dd>
             <dt>Necesita</dt><dd>nada más que el navegador; funciona sin conexión</dd>
           </dl>
@@ -735,7 +742,14 @@
       <div class="preguntas">
         <details>
           <summary>¿Hay que instalar algo?</summary>
-          <div class="respuesta"><p>No. audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil. Si prefieres no depender de la conexión, puedes guardar la página y usarla sin Internet.</p></div>
+          <div class="respuesta"><p>No hace falta: audiopapel es una página web. Para grabar, ábrela en el navegador; para escuchar, basta la cámara del móvil.</p>
+            <p>Si la usas a menudo, puedes <strong>instalarla como una app</strong>: tendrás su icono en la pantalla de inicio, se abrirá sin barras, con la cámara lista, y <strong>funcionará sin conexión</strong> (la primera vez hay que abrirla con Internet para que se guarde en el móvil).</p>
+            <ul>
+              <li><strong>Android</strong> (Chrome): al abrir la herramienta aparece el botón «Instalar». Si no sale, menú <strong>⋮</strong> › «Añadir a pantalla de inicio» › «Instalar».</li>
+              <li><strong>iPhone y iPad</strong> (Safari): botón <strong>Compartir</strong> (el cuadrado con una flecha hacia arriba; en las versiones nuevas, dentro del menú <strong>···</strong>) › «Añadir a pantalla de inicio».</li>
+              <li><strong>Ordenador</strong> (Chrome o Edge): el icono de instalar que aparece a la derecha de la barra de direcciones.</li>
+            </ul>
+            <p>En el móvil es mejor instalarla que guardar la página: una página guardada se abre como un archivo y el navegador no le deja usar la cámara ni el micrófono. (Aun así puede leer los códigos con el botón «Foto».) En el ordenador, la página guardada funciona completa y sin Internet.</p></div>
         </details>
         <details>
           <summary>¿Dónde se guarda mi voz?</summary>
@@ -743,11 +757,11 @@
         </details>
         <details>
           <summary>¿Por qué suena un poco robótica?</summary>
-          <div class="respuesta"><p>Porque para caber en papel la voz se comprime a 700 bits por segundo (1.200 con la calidad alta), menos del 1 % de lo que ocuparía sin comprimir. Codec 2, el códec que lo hace posible, se diseñó para radioaficionados: prioriza que se entienda lo que dices sobre la fidelidad del sonido.</p></div>
+          <div class="respuesta"><p>Porque para caber en papel la voz se comprime a 1.200 bits por segundo, menos del 1 % de lo que ocuparía sin comprimir. Codec 2, el códec que lo hace posible, se diseñó para radioaficionados: prioriza que se entienda lo que dices sobre la fidelidad del sonido.</p></div>
         </details>
         <details>
           <summary>¿Cuánto puede durar un mensaje?</summary>
-          <div class="respuesta"><p>Hasta tres minutos. Con el tamaño máximo (7,4 cm impreso), cada código guarda unos 29 segundos de voz: tres minutos caben en 7 códigos. Con la calidad alta (1.200 bit/s) son unos 19 segundos por código. Los tamaños pequeños se leen mejor con cámaras modestas, pero hacen falta más códigos.</p></div>
+          <div class="respuesta"><p>Hasta tres minutos. Con el tamaño máximo (7,4 cm impreso), cada código guarda unos 19 segundos de voz: tres minutos caben en 10 códigos. Si eliges 700 bit/s (suena peor), son unos 29 segundos por código y 7 códigos. Los tamaños pequeños se leen mejor con cámaras modestas, pero hacen falta más códigos.</p></div>
         </details>
         <details>
           <summary>¿Puedo mandarlo por WhatsApp?</summary>
@@ -801,6 +815,11 @@ __QRCODE_JS__
    escanearlo se abre audiopapel y lee el mensaje en voz alta.
    ===================================================================== */
 const $ = (id) => document.getElementById(id);
+
+// Guardar la web en el móvil para que funcione sin conexión (ver sw.js).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 /* ---- Contador de códigos QR generados ----
    Lee el total de la hoja de cálculo (ver contador/LEEME.md). Si no
