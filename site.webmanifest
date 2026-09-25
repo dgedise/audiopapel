@@ -2,6 +2,7 @@
   "name": "audiopapel",
   "short_name": "audiopapel",
   "description": "Mensajes de voz impresos en códigos QR.",
+  "id": "audio_en_papel.html",
   "lang": "es",
   "start_url": "audio_en_papel.html",
   "scope": "./",

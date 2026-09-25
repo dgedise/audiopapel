@@ -235,6 +235,15 @@
     font: inherit; font-family: var(--f-titular); font-stretch: 85%; font-weight: 700; margin-right: 10px;
     padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--tinta); background: transparent; color: var(--tinta); cursor: pointer;
   }
+  /* Móvil: un desplegable mide lo que su opción más larga y el selector de
+     archivos lo que su texto; dentro de una etiqueta flexible no encogían y
+     se salían por la derecha. Aquí cada etiqueta ocupa su línea entera y el
+     control se ajusta a ella (el navegador recorta el texto que no quepa). */
+  select { max-width: 100%; }
+  @media (max-width: 560px) {
+    #tab-emisor .fila > label { flex: 1 1 100%; min-width: 0; }
+    #tab-emisor .fila > label select, #tab-emisor .fila > label input[type=file] { width: 100%; min-width: 0; }
+  }
   textarea { width: 100%; min-height: 70px; font-family: var(--f-mono); font-size: .85rem; }
   textarea.enlace-mensaje { margin-top: 8px; min-height: 90px; word-break: break-all; }
 
